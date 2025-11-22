@@ -114,11 +114,16 @@ export default function Page() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1e3a5f] via-[#162a45] to-[#0f1d30] flex items-center justify-center p-4">
-      <Card className="w-full max-w-md border-none shadow-2xl bg-white/95 backdrop-blur-sm">
+    <div
+      className="min-h-screen flex items-center justify-center p-4 bg-cover bg-center bg-no-repeat"
+      style={{
+        backgroundImage: 'url(https://www.webcincodev.com/blog/wp-content/uploads/2025/11/Whisk_dc8e13226f7c52c91fc44be13e2ef1b8eg.png)'
+      }}
+    >
+      <Card className="w-full max-w-md border-none shadow-2xl bg-white/70 backdrop-blur-sm">
         <CardHeader className="text-center pb-2">
-          <div className="mx-auto mb-4 p-4 bg-[#1e3a5f] rounded-full w-fit shadow-lg">
-            <MapPin className="h-10 w-10 text-white" />
+          <div className="mx-auto mb-4 bg-white rounded-full h-32 w-32 flex items-center justify-center shadow-lg">
+            <img src="https://www.webcincodev.com/blog/wp-content/uploads/2025/11/logojf-1.png" alt="GPS JF Logo" className="h-full w-full" />
           </div>
           <CardTitle className="text-3xl font-bold text-[#1e3a5f]">GPS JF</CardTitle>
           <p className="text-gray-500 mt-2">Sistema de Control y Rastreo</p>
