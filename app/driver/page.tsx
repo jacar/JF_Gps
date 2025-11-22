@@ -12,6 +12,8 @@ import type { User, Trip } from "@/lib/types"
 import { GPSTracker } from "@/components/gps-tracker"
 import { DriverCamera, DriverCameraRef } from "@/components/driver-camera"
 
+import { DriverMap } from "@/components/driver-map"
+
 export default function DriverPage() {
   const [user, setUser] = useState<User | null>(null)
   const [activeTrip, setActiveTrip] = useState<Trip | null>(null)
@@ -20,12 +22,26 @@ export default function DriverPage() {
   const [currentSpeed, setCurrentSpeed] = useState(0)
   const [distance, setDistance] = useState(0)
   const [maxSpeed, setMaxSpeed] = useState(0)
+  const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [geoError, setGeoError] = useState<string | null>(null)
   const [geoErrorType, setGeoErrorType] = useState<string | null>(null)
   const [showGeoHelp, setShowGeoHelp] = useState(false)
+  // Debug state
+  const [debugInfo, setDebugInfo] = useState<{
+    lastUpdate: string;
+    lastCoords: string;
+    apiStatus: string;
+    gpsAccuracy: number;
+  }>({
+    lastUpdate: "Nunca",
+    lastCoords: "N/A",
+    apiStatus: "Inactivo",
+    gpsAccuracy: 0
+  })
+  const [showDebug, setShowDebug] = useState(false)
   const router = useRouter()
 
-  const watchIdRef = useRef<number | null>(null)
+  // const watchIdRef = useRef<number | null>(null) // Removed unused ref
   const startTimeRef = useRef<Date | null>(null)
   const lastPositionRef = useRef<{ lat: number; lng: number } | null>(null)
   const speedsRef = useRef<number[]>([])
@@ -73,6 +89,10 @@ export default function DriverPage() {
       startTimeRef.current = new Date(trip.start_time)
       setDistance(trip.total_distance_km)
       setMaxSpeed(trip.max_speed_kmh)
+      // Set initial location from trip start if available, otherwise wait for GPS
+      if (trip.start_latitude && trip.start_longitude) {
+        setCurrentLocation({ lat: trip.start_latitude, lng: trip.start_longitude })
+      }
     }
 
     setLoading(false)
@@ -129,6 +149,7 @@ export default function DriverPage() {
           setActiveTrip(trip)
           startTimeRef.current = new Date()
           lastPositionRef.current = { lat: latitude, lng: longitude }
+          setCurrentLocation({ lat: latitude, lng: longitude })
           setDistance(0)
           setMaxSpeed(0)
           speedsRef.current = []
@@ -152,10 +173,10 @@ export default function DriverPage() {
 
     setLoading(true)
 
-    if (watchIdRef.current !== null) {
-      navigator.geolocation.clearWatch(watchIdRef.current)
-      watchIdRef.current = null
-    }
+    // if (watchIdRef.current !== null) {
+    //   navigator.geolocation.clearWatch(watchIdRef.current)
+    //   watchIdRef.current = null
+    // }
 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
@@ -173,6 +194,7 @@ export default function DriverPage() {
           setCurrentSpeed(0)
           speedsRef.current = []
           lastPositionRef.current = null
+          setCurrentLocation(null)
           setLoading(false)
           cameraRef.current?.stopCamera()
         } catch (err: any) {
@@ -201,6 +223,7 @@ export default function DriverPage() {
           setCurrentSpeed(0)
           speedsRef.current = []
           lastPositionRef.current = null
+          setCurrentLocation(null)
           setLoading(false)
           cameraRef.current?.stopCamera()
         } catch (err: any) {
@@ -218,9 +241,9 @@ export default function DriverPage() {
       }
     }
 
-    if (watchIdRef.current !== null) {
-      navigator.geolocation.clearWatch(watchIdRef.current)
-    }
+    // if (watchIdRef.current !== null) {
+    //   navigator.geolocation.clearWatch(watchIdRef.current)
+    // }
 
     localStorage.removeItem("gps_jf_user")
     router.push("/")
@@ -234,11 +257,57 @@ export default function DriverPage() {
     )
   }
 
-  const handleLocationUpdate = (speed: number, dist: number, maxSpd: number) => {
+  const handleLocationUpdate = (speed: number, dist: number, maxSpd: number, lat: number, lng: number) => {
     setCurrentSpeed(speed);
     setDistance(dist);
     setMaxSpeed(maxSpd);
+    lastPositionRef.current = { lat, lng };
+    setCurrentLocation({ lat, lng });
+    speedsRef.current.push(speed);
   };
+
+
+
+  const handleForceUpdate = () => {
+    if (!navigator.geolocation) {
+      alert("Geolocalización no soportada")
+      return
+    }
+
+    setDebugInfo(prev => ({ ...prev, apiStatus: "Forzando actualización..." }))
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude, accuracy, speed } = position.coords
+        const newSpeed = speed !== null ? speed * 3.6 : 0
+
+        setDebugInfo(prev => ({
+          ...prev,
+          lastUpdate: new Date().toLocaleTimeString(),
+          lastCoords: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
+          gpsAccuracy: accuracy,
+          apiStatus: "Enviando..."
+        }))
+
+        if (activeTrip && user) {
+          try {
+            await addTripLocation(user.id, user.vehicle_number!, latitude, longitude, newSpeed, accuracy)
+            setDebugInfo(prev => ({ ...prev, apiStatus: "Enviado OK" }))
+            handleLocationUpdate(newSpeed, distance, maxSpeed, latitude, longitude)
+          } catch (error: any) {
+            setDebugInfo(prev => ({ ...prev, apiStatus: `Error: ${error.message}` }))
+          }
+        } else {
+          setDebugInfo(prev => ({ ...prev, apiStatus: "No hay viaje activo" }))
+        }
+      },
+      (error) => {
+        setDebugInfo(prev => ({ ...prev, apiStatus: `Error GPS: ${error.message}` }))
+        alert(`Error GPS: ${error.message}`)
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
@@ -258,7 +327,15 @@ export default function DriverPage() {
               tripId={activeTrip.id}
 
               isTripActive={true}
-              onLocationUpdate={handleLocationUpdate}
+              onLocationUpdate={(speed, dist, maxSpd, lat, lng) => {
+                handleLocationUpdate(speed, dist, maxSpd, lat, lng)
+                setDebugInfo({
+                  lastUpdate: new Date().toLocaleTimeString(),
+                  lastCoords: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+                  apiStatus: "Auto-actualización",
+                  gpsAccuracy: 0 // GPSTracker doesn't pass accuracy yet, but that's fine
+                })
+              }}
             />
           )}
 
@@ -285,6 +362,9 @@ export default function DriverPage() {
                   <p>
                     <span className="font-medium">Velocidad Actual:</span> {currentSpeed.toFixed(2)} km/h
                   </p>
+                  {currentLocation && (
+                    <DriverMap latitude={currentLocation.lat} longitude={currentLocation.lng} />
+                  )}
                 </div>
               ) : (
                 <p className="text-gray-500">No hay viaje activo.</p>
@@ -322,7 +402,38 @@ export default function DriverPage() {
               </div>
             </CardContent>
           </Card>
-          <DriverCamera ref={cameraRef} user={user} />
+
+          {/* Debug Section */}
+          <div className="mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowDebug(!showDebug)}
+              className="w-full mb-2"
+            >
+              {showDebug ? "Ocultar Depuración" : "Mostrar Depuración GPS"}
+            </Button>
+
+            {showDebug && (
+              <Card className="bg-slate-50 border-slate-200">
+                <CardContent className="p-4 text-xs font-mono space-y-1">
+                  <p><strong>Última Act:</strong> {debugInfo.lastUpdate}</p>
+                  <p><strong>Coords:</strong> {debugInfo.lastCoords}</p>
+                  <p><strong>Precisión:</strong> {debugInfo.gpsAccuracy}m</p>
+                  <p><strong>Estado API:</strong> {debugInfo.apiStatus}</p>
+                  <Button
+                    size="sm"
+                    className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={handleForceUpdate}
+                  >
+                    Forzar Actualización GPS
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {user && <DriverCamera ref={cameraRef} user={user} />}
         </div>
       </main>
     </div>

@@ -36,7 +36,7 @@ export const DriverCamera = forwardRef<DriverCameraRef, DriverCameraProps>(({ us
   useEffect(() => {
     if (isCameraActive && user.id && !channelRef.current) {
       const channel = supabase.channel(`webrtc-signaling-${user.id}`);
-      channel.subscribe(async (status) => {
+      channel.subscribe(async (status: 'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED' | 'CHANNEL_ERROR') => {
         if (status === 'SUBSCRIBED') {
           console.log(`Subscribed to channel webrtc-signaling-${user.id}`);
           setIsChannelSubscribed(true); // Set subscribed status to true
@@ -79,23 +79,20 @@ export const DriverCamera = forwardRef<DriverCameraRef, DriverCameraProps>(({ us
     } catch (err) {
       if (err instanceof DOMException) {
         if (err.name === 'NotReadableError') {
-          setError("La cámara está siendo utilizada por otra aplicación o no se pudo iniciar la fuente de video. Asegúrate de que no haya otras aplicaciones usando la cámara y verifica los permisos del sistema.")
-          console.error("Camera access error: NotReadableError: Could not start video source. Check if camera is in use or system permissions.", err)
+          setError("La cámara está en uso por otra aplicación. Cierra otras apps que usen la cámara e intenta de nuevo.")
+          console.error("Camera access error: NotReadableError", err)
         } else if (err.name === 'NotAllowedError') {
-          setError("Permiso de cámara denegado. Por favor, permite el acceso a la cámara en la configuración de tu navegador.")
-          console.error("Camera access error: NotAllowedError: Camera permission denied.", err)
+          setError("Permiso denegado. Habilita el acceso a la cámara en la barra de dirección del navegador (icono de candado/cámara).")
+          console.error("Camera access error: NotAllowedError", err)
         } else if (err.name === 'NotFoundError') {
-          setError("No se encontró ninguna cámara disponible. Asegúrate de que tu dispositivo tenga una cámara conectada y funcionando.")
-          console.error("Camera access error: NotFoundError: No camera found.", err)
-        } else if (err.name === 'OverconstrainedError') {
-          setError("No se pudo cumplir con las restricciones de la cámara. Intenta con una resolución diferente o verifica la configuración de tu cámara.")
-          console.error("Camera access error: OverconstrainedError: Constraints could not be satisfied.", err)
+          setError("No se detectó ninguna cámara. Verifica que esté conectada correctamente.")
+          console.error("Camera access error: NotFoundError", err)
         } else {
-          setError(`Error al acceder a la cámara: ${err.message}.`) // Generic DOMException
+          setError(`Error de cámara: ${err.message}. Verifica permisos y conexión.`)
           console.error("Camera access error:", err)
         }
       } else {
-        setError(`Error inesperado al acceder a la cámara: ${err instanceof Error ? err.message : String(err)}.`) // Other unexpected errors
+        setError("Error inesperado al acceder a la cámara.")
         console.error("Unexpected camera access error:", err)
       }
       setIsCameraActive(false)

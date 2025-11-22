@@ -32,27 +32,38 @@ export function AdminMap({ selectedTripId, onTripSelect }: AdminMapProps) {
   useEffect(() => {
     fetchActiveTrips()
 
+    // Use a unique channel name to avoid conflicts during Fast Refresh
+    const channelId = `trips-changes-${Date.now()}`
     const channel = supabase
-      .channel("trips-changes")
+      .channel(channelId)
       .on("postgres_changes", { event: "*", schema: "public", table: "trips" }, () => {
         fetchActiveTrips()
       })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "trip_locations" }, (payload) => {
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "trip_locations" }, (payload: any) => {
         const newLocation = payload.new as TripLocation
         setTripLocations((prev) => ({
           ...prev,
           [newLocation.trip_id]: [...(prev[newLocation.trip_id] || []), newLocation],
         }))
       })
-      .subscribe()
+      .subscribe((status: string, err?: Error) => {
+        if (status === "SUBSCRIBED") {
+          console.log(`Supabase channel ${channelId} subscribed successfully!`);
+        } else if (status === "CHANNEL_ERROR") {
+          console.error(`Supabase channel ${channelId} error:`, err);
+        } else if (status === "TIMED_OUT") {
+          console.error(`Supabase channel ${channelId} timed out:`, err);
+        }
+      })
 
     return () => {
+      console.log(`Cleaning up channel ${channelId}`);
       supabase.removeChannel(channel)
     }
   }, [])
 
   const fetchActiveTrips = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("trips")
       .select(`
         *,
@@ -60,12 +71,19 @@ export function AdminMap({ selectedTripId, onTripSelect }: AdminMapProps) {
       `)
       .eq("status", "active")
 
+    if (error) {
+      console.error("Error fetching active trips:", error)
+      return
+    }
+
     if (data) {
+      console.log('📊 Active trips fetched:', data.length, 'trips:', data.map(t => ({ vehicle: t.vehicle_number, driver: t.driver?.full_name, lat: t.start_latitude, lng: t.start_longitude })))
       setActiveTrips(data as TripWithDriver[])
 
       // Fetch locations for each trip
-      data.forEach(async (trip) => {
+      data.forEach(async (trip: any) => {
         const locations = await getTripLocations(trip.id)
+        console.log(`📍 Locations for ${trip.vehicle_number}:`, locations.length, 'points')
         setTripLocations((prev) => ({
           ...prev,
           [trip.id]: locations,

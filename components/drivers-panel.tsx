@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -18,11 +18,17 @@ interface DriversPanelProps {
 
 export function DriversPanel({ onDriverSelect, selectedTripId, onClose }: DriversPanelProps) {
   const [activeDrivers, setActiveDrivers] = useState<TripWithDriver[]>([])
-  const [inactiveDrivers, setInactiveDrivers] = useState<User[]>([])
+
   const [latestLocations, setLatestLocations] = useState<Record<string, TripLocation>>({})
   const [tripDurations, setTripDurations] = useState<Record<string, string>>({})
   const [lastTrips, setLastTrips] = useState<Record<string, Trip>>({})
   const supabase = createClient()
+
+  const activeDriversRef = useRef<TripWithDriver[]>([])
+
+  useEffect(() => {
+    activeDriversRef.current = activeDrivers
+  }, [activeDrivers])
 
   useEffect(() => {
     fetchDrivers()
@@ -32,7 +38,7 @@ export function DriversPanel({ onDriverSelect, selectedTripId, onClose }: Driver
       .on("postgres_changes", { event: "*", schema: "public", table: "trips" }, () => {
         fetchDrivers()
       })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "trip_locations" }, (payload) => {
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "trip_locations" }, (payload: any) => {
         const newLocation = payload.new as TripLocation
         setLatestLocations((prev) => ({
           ...prev,
@@ -53,6 +59,8 @@ export function DriversPanel({ onDriverSelect, selectedTripId, onClose }: Driver
   }, [])
 
   const fetchDrivers = async () => {
+    setLatestLocations({})
+    setTripDurations({})
     // Fetch active trips with driver info
     const { data: activeTrips } = await supabase
       .from("trips")
@@ -67,58 +75,32 @@ export function DriversPanel({ onDriverSelect, selectedTripId, onClose }: Driver
       setActiveDrivers(activeTrips as TripWithDriver[])
 
       // Fetch latest location for each active trip
-      activeTrips.forEach(async (trip) => {
+      const locationPromises = activeTrips.map(async (trip) => {
         const { data: locations } = await supabase
           .from("trip_locations")
           .select("*")
           .eq("trip_id", trip.id)
           .order("timestamp", { ascending: false })
           .limit(1)
+        return { tripId: trip.id, location: locations && locations.length > 0 ? locations[0] : null }
+      })
 
-        if (locations && locations.length > 0) {
-          setLatestLocations((prev) => ({
-            ...prev,
-            [trip.id]: locations[0],
-          }))
+      const fetchedLocations = await Promise.all(locationPromises)
+      const newLatestLocations: Record<string, TripLocation> = {}
+      fetchedLocations.forEach(({ tripId, location }) => {
+        if (location) {
+          newLatestLocations[tripId] = location
         }
       })
+      setLatestLocations(newLatestLocations)
     }
 
-    // Fetch all drivers and filter inactive ones
-    const { data: allDrivers } = await supabase
-      .from("users")
-      .select("*")
-      .eq("role", "driver")
-      .order("full_name", { ascending: true })
 
-    if (allDrivers && activeTrips) {
-      const activeDriverIds = new Set(activeTrips.map((t) => t.driver_id))
-      const inactive = allDrivers.filter((d) => !activeDriverIds.has(d.id))
-      setInactiveDrivers(inactive)
-    }
-
-    // Fetch recent completed trips to show stats for inactive drivers
-    const { data: recentTrips } = await supabase
-      .from("trips")
-      .select("*")
-      .eq("status", "completed")
-      .order("end_time", { ascending: false })
-      .limit(50)
-
-    if (recentTrips) {
-      const lastTripsMap: Record<string, Trip> = {}
-      recentTrips.forEach((trip) => {
-        if (!lastTripsMap[trip.driver_id]) {
-          lastTripsMap[trip.driver_id] = trip as Trip
-        }
-      })
-      setLastTrips(lastTripsMap)
-    }
   }
 
   const updateDurations = () => {
     const newDurations: Record<string, string> = {}
-    activeDrivers.forEach((trip) => {
+    activeDriversRef.current.forEach((trip) => {
       newDurations[trip.id] = calculateDuration(trip.start_time)
     })
     setTripDurations(newDurations)
@@ -127,7 +109,13 @@ export function DriversPanel({ onDriverSelect, selectedTripId, onClose }: Driver
   const calculateDuration = (startTime: string) => {
     const start = new Date(startTime).getTime()
     const now = Date.now()
+
+    if (isNaN(start)) return "00:00:00"
+
     const diffSeconds = Math.floor((now - start) / 1000)
+
+    if (diffSeconds < 0) return "00:00:00"
+
     const hours = Math.floor(diffSeconds / 3600)
     const minutes = Math.floor((diffSeconds % 3600) / 60)
     const seconds = diffSeconds % 60
@@ -159,25 +147,20 @@ export function DriversPanel({ onDriverSelect, selectedTripId, onClose }: Driver
           )}
         </div>
       </CardHeader>
-      <CardContent className="p-0">
-        <Tabs defaultValue="active" className="w-full">
-          <TabsList className="w-full grid grid-cols-2 rounded-none border-b">
+      <CardContent className="p-0 flex flex-col h-full">
+        <Tabs defaultValue="active" className="w-full flex-1 flex flex-col">
+          <TabsList className="w-full grid grid-cols-1 roundeda_none border-b">
             <TabsTrigger value="active" className="relative">
               Activos
               <Badge variant="secondary" className="ml-2 h-5 min-w-[20px] px-1">
                 {activeDrivers.length}
               </Badge>
             </TabsTrigger>
-            <TabsTrigger value="inactive" className="relative">
-              Inactivos
-              <Badge variant="outline" className="ml-2 h-5 min-w-[20px] px-1">
-                {inactiveDrivers.length}
-              </Badge>
-            </TabsTrigger>
+
           </TabsList>
 
-          <TabsContent value="active" className="m-0">
-            <ScrollArea className="h-[calc(100vh-280px)]">
+          <TabsContent value="active" className="m-0 flex-1 flex flex-col">
+            <ScrollArea className="flex-1">
               {activeDrivers.length === 0 ? (
                 <div className="p-6 text-center">
                   <Car className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
@@ -218,7 +201,7 @@ export function DriversPanel({ onDriverSelect, selectedTripId, onClose }: Driver
                             </Badge>
                           </div>
 
-                          <div className="grid grid-cols-3 gap-2 text-xs">
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
                             <div className="flex items-center gap-1">
                               <Timer className="h-3 w-3 text-muted-foreground" />
                               <span className="text-muted-foreground">{tripDurations[trip.id] || "00:00:00"}</span>
@@ -245,62 +228,7 @@ export function DriversPanel({ onDriverSelect, selectedTripId, onClose }: Driver
             </ScrollArea>
           </TabsContent>
 
-          <TabsContent value="inactive" className="m-0">
-            <ScrollArea className="h-[calc(100vh-280px)]">
-              {inactiveDrivers.length === 0 ? (
-                <div className="p-6 text-center">
-                  <UserIcon className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-                  <p className="text-sm text-muted-foreground">Todos los conductores están activos</p>
-                </div>
-              ) : (
-                <div className="p-4 space-y-2">
-                  {inactiveDrivers.map((driver) => {
-                    const lastTrip = lastTrips[driver.id]
-                    return (
-                      <div key={driver.id} className="border rounded-lg p-3 space-y-2 bg-muted/30">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="p-1.5 bg-muted rounded">
-                              <Car className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <div>
-                              <p className="font-medium text-sm">{driver.full_name}</p>
-                              <p className="text-xs text-muted-foreground">{driver.vehicle_number || "Sin vehículo"}</p>
-                              {driver.imei && (
-                                <div className="flex items-center gap-1 mt-0.5">
-                                  <Smartphone className="h-3 w-3 text-muted-foreground" />
-                                  <p className="text-[10px] text-muted-foreground">{driver.imei}</p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <Badge variant="outline" className="text-xs">
-                            Inactivo
-                          </Badge>
-                        </div>
-                        {lastTrip && (
-                          <div className="grid grid-cols-2 gap-2 pt-2 border-t text-xs">
-                            <div className="flex items-center gap-1">
-                              <Timer className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-muted-foreground">
-                                {lastTrip.end_time ? formatTripDuration(lastTrip.start_time, lastTrip.end_time) : "--"}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-muted-foreground">
-                                {lastTrip.total_distance_km.toFixed(1)} km
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </ScrollArea>
-          </TabsContent>
+
         </Tabs>
       </CardContent>
     </Card>

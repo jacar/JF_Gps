@@ -22,6 +22,7 @@ import {
     ChevronDown,
     ChevronRight,
     LogOut,
+    X,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -156,9 +157,10 @@ const menuItems: MenuItem[] = [
 interface AdminSidebarProps {
     onLogout: () => void
     userName?: string
+    onClose?: () => void
 }
 
-export function AdminSidebar({ onLogout, userName }: AdminSidebarProps) {
+export function AdminSidebar({ onLogout, userName, onClose }: AdminSidebarProps) {
     const router = useRouter()
     const pathname = usePathname()
     const [expandedItems, setExpandedItems] = useState<string[]>(["vehicles"])
@@ -185,16 +187,26 @@ export function AdminSidebar({ onLogout, userName }: AdminSidebarProps) {
     return (
         <aside className="w-64 bg-[#1e3a5f] text-white flex flex-col h-screen fixed left-0 top-0 z-50">
             {/* Logo */}
-            <div className="p-6 border-b border-white/10">
+            <div className="p-6 border-b border-white/10 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center">
-                        <MapPin className="h-7 w-7 text-[#1e3a5f]" />
-                    </div>
+          <img src="https://www.webcincodev.com/blog/wp-content/uploads/2025/11/logojf-1.png" alt="Logo JF" className="h-12 w-12" />
+        </div>
                     <div>
                         <h1 className="font-bold text-lg">GPS JF</h1>
                         <p className="text-xs text-white/60">Sistema de Rastreo</p>
                     </div>
                 </div>
+                {onClose && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-white/70 hover:text-white hover:bg-white/5 md:hidden"
+                        onClick={onClose}
+                    >
+                        <X className="h-4 w-4" />
+                    </Button>
+                )}
             </div>
 
             {/* Navigation */}

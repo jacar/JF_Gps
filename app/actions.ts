@@ -116,6 +116,9 @@ export async function startTrip(driverId: string, vehicleNumber: string, latitud
       throw error;
     }
 
+    // Registrar la ubicación inicial inmediatamente
+    await addTripLocation(driverId, vehicleNumber, latitude, longitude, 0, 0);
+
     return data;
   } catch (error) {
     console.error("Excepción en startTrip:", error);

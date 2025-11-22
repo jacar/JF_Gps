@@ -1,37 +1,31 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Navigation, Power, Battery, Wifi, AlertTriangle, Eye, EyeOff } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
 import { addTripLocation } from "@/app/actions"
-import type { User } from "@/lib/types"
-
-
-
 
 interface GPSTrackerProps {
   userId: string;
   vehicleId: string;
   tripId: string;
   isTripActive: boolean;
-  onLocationUpdate: (speed: number, distance: number, maxSpeed: number) => void;
+  onLocationUpdate: (speed: number, distance: number, maxSpeed: number, lat: number, lng: number) => void;
 }
 
-export function GPSTracker({ userId, vehicleId, isTripActive, onLocationUpdate }: GPSTrackerProps) {
+export function GPSTracker({ userId, vehicleId, tripId, isTripActive, onLocationUpdate }: GPSTrackerProps) {
   const [currentSpeed, setCurrentSpeed] = useState(0);
   const [distance, setDistance] = useState(0);
   const [maxSpeed, setMaxSpeed] = useState(0);
+
   const watchId = useRef<number | null>(null);
   const lastLocation = useRef<{ lat: number; lng: number } | null>(null);
+  const distanceRef = useRef(0);
+  const maxSpeedRef = useRef(0);
 
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371; // Radius of Earth in kilometers
+  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const R = 6371; // Radio de la Tierra en km
     const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
+    const dLon = (lng2 - lng1) * Math.PI / 180;
+    const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
       Math.sin(dLon / 2) * Math.sin(dLon / 2);
@@ -46,9 +40,16 @@ export function GPSTracker({ userId, vehicleId, isTripActive, onLocationUpdate }
           async (position) => {
             const { latitude, longitude, speed } = position.coords;
             const newSpeed = speed !== null ? speed * 3.6 : 0; // m/s to km/h
+            // Update refs and state for speed
             setCurrentSpeed(newSpeed);
-            setMaxSpeed((prevMaxSpeed) => Math.max(prevMaxSpeed, newSpeed));
 
+            // Update max speed using ref to avoid stale closure
+            const newMaxSpeed = Math.max(maxSpeedRef.current, newSpeed);
+            maxSpeedRef.current = newMaxSpeed;
+            setMaxSpeed(newMaxSpeed);
+
+            // Compute distance increment
+            let newDistance = distanceRef.current;
             if (lastLocation.current) {
               const travelDistance = calculateDistance(
                 lastLocation.current.lat,
@@ -56,11 +57,16 @@ export function GPSTracker({ userId, vehicleId, isTripActive, onLocationUpdate }
                 latitude,
                 longitude
               );
-              setDistance((prevDistance) => prevDistance + travelDistance);
+              newDistance = distanceRef.current + travelDistance;
             }
+            distanceRef.current = newDistance;
+            setDistance(newDistance);
+
+            // Update last location
             lastLocation.current = { lat: latitude, lng: longitude };
 
-            onLocationUpdate(newSpeed, distance, maxSpeed);
+            // Pass fresh values to parent
+            onLocationUpdate(newSpeed, newDistance, newMaxSpeed, latitude, longitude);
 
             try {
               await addTripLocation(userId, vehicleId, latitude, longitude, newSpeed);
@@ -74,7 +80,7 @@ export function GPSTracker({ userId, vehicleId, isTripActive, onLocationUpdate }
           {
             enableHighAccuracy: true,
             timeout: 5000,
-            maximumAge: 0,
+            maximumAge: 0
           }
         );
       }
@@ -95,7 +101,7 @@ export function GPSTracker({ userId, vehicleId, isTripActive, onLocationUpdate }
         watchId.current = null;
       }
     };
-  }, [isTripActive, userId, vehicleId, onLocationUpdate, distance, maxSpeed]);
+  }, [isTripActive, userId, vehicleId, onLocationUpdate]);
 
   return (
     <div className="flex flex-col items-center justify-center p-4">

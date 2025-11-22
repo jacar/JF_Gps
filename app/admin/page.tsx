@@ -7,12 +7,14 @@ import { AdminMap } from "@/components/admin-map"
 import { DriversPanel } from "@/components/drivers-panel"
 import { createClient } from "@/lib/supabase/client"
 import type { User, TripWithDriver } from "@/lib/types"
+import { Menu } from "lucide-react"
 
 export default function AdminPage() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedTrip, setSelectedTrip] = useState<TripWithDriver | null>(null)
   const [showDriversPanel, setShowDriversPanel] = useState(true)
+  const [showSidebar, setShowSidebar] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -58,13 +60,31 @@ export default function AdminPage() {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Sidebar */}
-      <AdminSidebar onLogout={handleLogout} userName={user?.full_name} />
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-card border-r transition-transform duration-300 ease-in-out ${showSidebar ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}>
+        <AdminSidebar onLogout={handleLogout} userName={user?.full_name} onClose={() => setShowSidebar(false)} />
+      </div>
+
+      {/* Overlay for mobile sidebar */}
+      {showSidebar && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={() => setShowSidebar(false)}
+        ></div>
+      )}
 
       {/* Main Content */}
-      <div className="flex-1 ml-64 flex flex-col h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col md:flex-row h-screen overflow-hidden md:ml-64">
+        {/* Toggle Sidebar Button for mobile */}
+        <button
+          onClick={() => setShowSidebar(true)}
+          className="absolute top-4 left-4 z-40 bg-white shadow-lg rounded-lg p-2 md:hidden"
+        >
+          <Menu className="h-6 w-6" />
+        </button>
+
         {/* Drivers Panel - Collapsible */}
         {showDriversPanel && (
-          <div className="absolute top-4 left-72 z-40 w-96 max-h-[calc(100vh-2rem)] overflow-hidden">
+          <div className="fixed inset-x-0 bottom-0 z-40 w-full max-h-[50vh] overflow-y-auto bg-background p-4 md:relative md:top-auto md:left-auto md:w-96 md:h-full md:overflow-y-auto md:bg-transparent md:p-0">
             <DriversPanel
               onDriverSelect={handleDriverSelect}
               selectedTripId={selectedTrip?.id || null}
@@ -90,7 +110,7 @@ export default function AdminPage() {
         {!showDriversPanel && (
           <button
             onClick={() => setShowDriversPanel(true)}
-            className="absolute top-4 left-72 z-40 bg-white shadow-lg rounded-lg px-4 py-2 text-sm font-medium hover:bg-gray-50 transition-colors"
+            className="fixed bottom-4 right-4 z-40 bg-white shadow-lg rounded-full p-3 text-sm font-medium hover:bg-gray-50 transition-colors md:absolute md:top-4 md:left-4 md:rounded-lg md:px-4 md:py-2"
           >
             Mostrar Conductores
           </button>

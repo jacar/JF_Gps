@@ -30,6 +30,8 @@ export default function VehiclesMapPage() {
     const [showPanel, setShowPanel] = useState(true)
     const [mapCenter, setMapCenter] = useState<[number, number]>([-12.0464, -77.0428])
     const [mapZoom, setMapZoom] = useState(13)
+    const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null)
+    const [trackingLocation, setTrackingLocation] = useState(false)
     const router = useRouter()
     const supabase = createClient()
 
@@ -58,6 +60,39 @@ export default function VehiclesMapPage() {
 
         return () => clearInterval(interval)
     }, [router])
+
+    // Track admin's current location
+    useEffect(() => {
+        if (!navigator.geolocation) {
+            console.warn("Geolocation not supported")
+            return
+        }
+
+        setTrackingLocation(true)
+
+        const watchId = navigator.geolocation.watchPosition(
+            (position) => {
+                setMyLocation({
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
+                })
+                setTrackingLocation(false)
+            },
+            (error) => {
+                console.error("Error getting location:", error)
+                setTrackingLocation(false)
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 30000
+            }
+        )
+
+        return () => {
+            navigator.geolocation.clearWatch(watchId)
+        }
+    }, [])
 
     useEffect(() => {
         if (selectedVehicle) {
@@ -276,6 +311,21 @@ export default function VehiclesMapPage() {
                         </button>
                     )}
 
+                    {/* Center on My Location Button */}
+                    {myLocation && (
+                        <button
+                            onClick={() => {
+                                setMapCenter([myLocation.lat, myLocation.lng])
+                                setMapZoom(15)
+                            }}
+                            className="absolute top-4 right-4 z-40 bg-blue-600 text-white shadow-lg rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+                            title="Centrar en mi ubicación"
+                        >
+                            <MapPin className="h-4 w-4" />
+                            Mi Ubicación
+                        </button>
+                    )}
+
                     {/* Map */}
                     <div className="w-full h-full">
                         <Map
@@ -308,6 +358,20 @@ export default function VehiclesMapPage() {
                                     </div>
                                 </Marker>
                             ))}
+
+                            {/* My Location Marker */}
+                            {myLocation && (
+                                <Marker
+                                    width={50}
+                                    anchor={[myLocation.lat, myLocation.lng]}
+                                >
+                                    <div className="relative flex items-center justify-center">
+                                        <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-xl bg-blue-600 ring-4 ring-blue-200 ring-opacity-50 animate-pulse">
+                                            <MapPin className="h-6 w-6 text-white" />
+                                        </div>
+                                    </div>
+                                </Marker>
+                            )}
 
                             {selectedVehicle && (
                                 <Overlay anchor={[selectedVehicle.latitude, selectedVehicle.longitude]} offset={[0, -60]}>

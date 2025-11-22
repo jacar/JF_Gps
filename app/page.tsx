@@ -65,6 +65,7 @@ export default function Page() {
     setError("")
 
     try {
+      // 1. Intento de login con credenciales maestras (Hardcoded)
       if (adminUser === "Petroboscan" && adminPass === "Petroboscan2025") {
         const adminUserObj = {
           id: "admin-universal",
@@ -75,10 +76,36 @@ export default function Page() {
         }
         localStorage.setItem("gps_jf_user", JSON.stringify(adminUserObj))
         router.push("/admin")
-      } else {
-        setError("Credenciales de administrador incorrectas")
-        setLoading(false)
+        return
       }
+
+      // 2. Intento de login con base de datos (Teléfono)
+      // Asumimos que si no es el usuario maestro, es un número de teléfono
+      const user = await getUserByPhone(adminUser)
+
+      if (user) {
+        if (user.role !== "admin") {
+          setError("Este usuario no tiene permisos de administrador.")
+          setLoading(false)
+          return
+        }
+
+        // Por ahora, usamos una contraseña genérica o la misma que el maestro para DB admins
+        // O podríamos implementar una verificación de contraseña real si existiera en la DB
+        if (adminPass !== "Jf2025" && adminPass !== "Petroboscan2025") {
+          setError("Contraseña incorrecta")
+          setLoading(false)
+          return
+        }
+
+        localStorage.setItem("gps_jf_user", JSON.stringify(user))
+        router.push("/admin")
+        return
+      }
+
+      // Si no coincide con ninguno
+      setError("Credenciales incorrectas o usuario no encontrado")
+      setLoading(false)
     } catch (err) {
       console.error(err)
       setError("Error al iniciar sesión")
@@ -165,13 +192,13 @@ export default function Page() {
             <TabsContent value="admin">
               <form onSubmit={handleAdminLogin} className="space-y-5">
                 <div className="space-y-2">
-                  <Label htmlFor="adminUser" className="text-gray-700 font-medium">Usuario Administrativo</Label>
+                  <Label htmlFor="adminUser" className="text-gray-700 font-medium">Usuario o Celular</Label>
                   <div className="relative">
                     <ShieldCheck className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                     <Input
                       id="adminUser"
                       type="text"
-                      placeholder="Usuario"
+                      placeholder="Usuario o +58..."
                       value={adminUser}
                       onChange={(e) => setAdminUser(e.target.value)}
                       className="pl-10 h-11 border-gray-300 focus:border-[#1e3a5f] focus:ring-[#1e3a5f]"
