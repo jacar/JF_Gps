@@ -77,7 +77,7 @@ export function AdminMap({ selectedTripId, onTripSelect }: AdminMapProps) {
     }
 
     if (data) {
-      console.log('📊 Active trips fetched:', data.length, 'trips:', data.map(t => ({ vehicle: t.vehicle_number, driver: t.driver?.full_name, lat: t.start_latitude, lng: t.start_longitude })))
+      console.log('📊 Active trips fetched:', data.length, 'trips:', data.map((t: any) => ({ vehicle: t.vehicle_number, driver: t.driver?.full_name, lat: t.start_latitude, lng: t.start_longitude })))
       setActiveTrips(data as TripWithDriver[])
 
       // Fetch locations for each trip

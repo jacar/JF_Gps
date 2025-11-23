@@ -73,7 +73,12 @@ export default function CreateMaintenancePage() {
 
     return (
         <div className="flex h-screen overflow-hidden bg-gray-50">
-            <AdminSidebar onLogout={handleLogout} userName={user?.full_name} />
+            <AdminSidebar
+                onLogout={handleLogout}
+                userName={user?.full_name}
+                isCollapsed={false}
+                onToggleCollapse={() => { }}
+            />
 
             <div className="flex-1 ml-64 flex flex-col overflow-hidden">
                 {/* Header */}

@@ -117,26 +117,26 @@ export default function Page() {
     <div
       className="min-h-screen flex items-center justify-center p-4 bg-cover bg-center bg-no-repeat"
       style={{
-        backgroundImage: 'url(https://www.webcincodev.com/blog/wp-content/uploads/2025/11/Whisk_dc8e13226f7c52c91fc44be13e2ef1b8eg.png)'
+        backgroundImage: 'url(https://www.webcincodev.com/blog/wp-content/uploads/2025/11/Gemini_Generated_Image_uyzxu2uyzxu2uyzx.png)'
       }}
     >
       <Card className="w-full max-w-md border-none shadow-2xl bg-white/70 backdrop-blur-sm">
         <CardHeader className="text-center pb-2">
           <div className="mx-auto mb-4 bg-white rounded-full h-32 w-32 flex items-center justify-center shadow-lg">
-            <img src="https://www.webcincodev.com/blog/wp-content/uploads/2025/11/logojf-1.png" alt="GPS JF Logo" className="h-full w-full" />
+            <img src="https://www.webcincodev.com/blog/wp-content/uploads/2025/11/Diseno-sin-titulo-2.png" alt="RASTREA MÓVIL Logo" className="h-full w-full" />
           </div>
-          <CardTitle className="text-3xl font-bold text-[#1e3a5f]">GPS JF</CardTitle>
+          <CardTitle className="text-3xl font-bold text-red-700">RASTREA MÓVIL</CardTitle>
           <p className="text-gray-500 mt-2">Sistema de Control y Rastreo</p>
         </CardHeader>
         <CardContent className="pt-6">
 
           <Tabs defaultValue="driver" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="driver" className="flex items-center gap-2">
+            <TabsList className="grid w-full grid-cols-2 mb-6 bg-red-100 text-red-700 data-[state=active]:bg-red-700 data-[state=active]:text-white">
+              <TabsTrigger value="driver" className="flex items-center gap-2 data-[state=active]:bg-red-700 data-[state=active]:text-white">
                 <Truck className="h-4 w-4" />
                 Conductor
               </TabsTrigger>
-              <TabsTrigger value="admin" className="flex items-center gap-2">
+              <TabsTrigger value="admin" className="flex items-center gap-2 data-[state=active]:bg-red-700 data-[state=active]:text-white">
                 <ShieldCheck className="h-4 w-4" />
                 Administrador
               </TabsTrigger>
@@ -155,7 +155,7 @@ export default function Page() {
                       placeholder="+58..."
                       value={driverPhone}
                       onChange={(e) => setDriverPhone(e.target.value)}
-                      className="pl-10 h-11 border-gray-300 focus:border-[#1e3a5f] focus:ring-[#1e3a5f]"
+                      className="pl-10 h-12 border-gray-300 focus:border-red-700 focus:ring-red-700"
                       required
                     />
                   </div>
@@ -171,7 +171,7 @@ export default function Page() {
                       placeholder="••••••••"
                       value={driverPass}
                       onChange={(e) => setDriverPass(e.target.value)}
-                      className="pl-10 h-11 border-gray-300 focus:border-[#1e3a5f] focus:ring-[#1e3a5f]"
+                      className="pl-10 h-12 border-gray-300 focus:border-red-700 focus:ring-red-700"
                       required
                     />
                   </div>
@@ -185,7 +185,7 @@ export default function Page() {
 
                 <Button
                   type="submit"
-                  className="w-full h-12 text-lg font-semibold bg-[#1e3a5f] hover:bg-[#2d5a8f] transition-all duration-200 shadow-md hover:shadow-lg"
+                  className="w-full h-12 text-lg font-semibold bg-red-700 hover:bg-red-800 transition-all duration-200 shadow-md hover:shadow-lg"
                   disabled={loading}
                 >
                   {loading ? "Verificando..." : "Entrar como Conductor"}
@@ -206,7 +206,7 @@ export default function Page() {
                       placeholder="Usuario o +58..."
                       value={adminUser}
                       onChange={(e) => setAdminUser(e.target.value)}
-                      className="pl-10 h-11 border-gray-300 focus:border-[#1e3a5f] focus:ring-[#1e3a5f]"
+                      className="pl-10 h-12 border-gray-300 focus:border-red-700 focus:ring-red-700"
                       required
                     />
                   </div>
@@ -222,7 +222,7 @@ export default function Page() {
                       placeholder="••••••••"
                       value={adminPass}
                       onChange={(e) => setAdminPass(e.target.value)}
-                      className="pl-10 h-11 border-gray-300 focus:border-[#1e3a5f] focus:ring-[#1e3a5f]"
+                      className="pl-10 h-12 border-gray-300 focus:border-red-700 focus:ring-red-700"
                       required
                     />
                   </div>
@@ -236,7 +236,7 @@ export default function Page() {
 
                 <Button
                   type="submit"
-                  className="w-full h-12 text-lg font-semibold bg-[#1e3a5f] hover:bg-[#2d5a8f] transition-all duration-200 shadow-md hover:shadow-lg"
+                  className="w-full h-12 text-lg font-semibold bg-red-700 hover:bg-red-800 transition-all duration-200 shadow-md hover:shadow-lg"
                   disabled={loading}
                 >
                   {loading ? "Verificando..." : "Entrar como Administrador"}

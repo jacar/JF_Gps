@@ -1,9 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
+    PanelLeft,
+    PanelRight,
     Home,
     Route,
     FileText,
@@ -89,12 +91,6 @@ const menuItems: MenuItem[] = [
                 icon: <PlusCircle className="h-3 w-3" />,
                 path: "/admin/vehicles/create",
             },
-            {
-                id: "vehicles-map",
-                label: "Mapa",
-                icon: <MapIcon className="h-3 w-3" />,
-                path: "/admin/vehicles/map",
-            },
         ],
     },
     {
@@ -158,12 +154,18 @@ interface AdminSidebarProps {
     onLogout: () => void
     userName?: string
     onClose?: () => void
+    isCollapsed?: boolean
+    onToggleCollapse?: () => void
 }
 
-export function AdminSidebar({ onLogout, userName, onClose }: AdminSidebarProps) {
+export function AdminSidebar({ onLogout, userName, onClose, isCollapsed: controlledIsCollapsed, onToggleCollapse: controlledOnToggleCollapse }: AdminSidebarProps) {
     const router = useRouter()
     const pathname = usePathname()
     const [expandedItems, setExpandedItems] = useState<string[]>(["vehicles"])
+    const [internalIsCollapsed, setInternalIsCollapsed] = useState(false)
+
+    const isCollapsed = controlledIsCollapsed ?? internalIsCollapsed
+    const onToggleCollapse = controlledOnToggleCollapse ?? (() => setInternalIsCollapsed(prev => !prev))
 
     const toggleExpand = (itemId: string) => {
         setExpandedItems((prev) =>
@@ -185,23 +187,38 @@ export function AdminSidebar({ onLogout, userName, onClose }: AdminSidebarProps)
     }
 
     return (
-        <aside className="w-64 bg-[#1e3a5f] text-white flex flex-col h-screen fixed left-0 top-0 z-50">
+        <aside
+            className={`bg-red-900 text-white flex flex-col h-screen fixed left-0 top-0 z-50 transition-all duration-200 ease-in-out ${isCollapsed ? "w-16" : "w-64"}`}
+        >
             {/* Logo */}
-            <div className="p-6 border-b border-white/10 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center">
-          <img src="https://www.webcincodev.com/blog/wp-content/uploads/2025/11/logojf-1.png" alt="Logo JF" className="h-12 w-12" />
-        </div>
-                    <div>
-                        <h1 className="font-bold text-lg">GPS JF</h1>
-                        <p className="text-xs text-white/60">Sistema de Rastreo</p>
+            <div className="p-6 border-b border-white/10 flex items-center justify-between relative">
+                {!isCollapsed && (
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 flex items-center justify-center">
+                            <img src="/logoadmin.png" alt="Logo RASTREA MÓVIL" className="h-16 w-16" />
+                        </div>
+                        <div>
+                            <h1 className="font-bold text-lg">RASTREA MÓVIL</h1>
+                            <p className="text-xs text-red-300">Sistema de Rastreo Vehicular</p>
+                        </div>
                     </div>
-                </div>
-                {onClose && (
+                )}
+                {isCollapsed && (
+                    <div className="flex items-center justify-center w-full">
+                        <img src="/logoadmin.png" alt="Logo RASTREA MÓVIL" className="h-10 w-10" />
+                    </div>
+                )}
+
+
+
+
+
+
+                {onClose && !isCollapsed && (
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-white/70 hover:text-white hover:bg-white/5 md:hidden"
+                        className="h-8 w-8 bg-red-800 text-white hover:bg-red-700 md:hidden"
                         onClick={onClose}
                     >
                         <X className="h-4 w-4" />
@@ -221,13 +238,13 @@ export function AdminSidebar({ onLogout, userName, onClose }: AdminSidebarProps)
                                         className={cn(
                                             "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                                             isParentActive(item)
-                                                ? "bg-white/10 text-white"
-                                                : "text-white/70 hover:bg-white/5 hover:text-white",
+                                                ? "bg-red-700 text-white"
+                                                : "hover:bg-red-800",
                                         )}
                                     >
                                         <div className="flex items-center gap-3">
                                             {item.icon}
-                                            <span>{item.label}</span>
+                                            {!isCollapsed && <span>{item.label}</span>}
                                         </div>
                                         {expandedItems.includes(item.id) ? (
                                             <ChevronDown className="h-4 w-4" />
@@ -240,16 +257,19 @@ export function AdminSidebar({ onLogout, userName, onClose }: AdminSidebarProps)
                                             {item.children.map((child) => (
                                                 <li key={child.id}>
                                                     <button
-                                                        onClick={() => child.path && router.push(child.path)}
+                                                        onClick={() => {
+                                                            child.path && router.push(child.path);
+                                                            onClose?.();
+                                                        }}
                                                         className={cn(
                                                             "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
                                                             isActive(child.path)
-                                                                ? "bg-white/10 text-white font-medium"
-                                                                : "text-white/60 hover:bg-white/5 hover:text-white/80",
+                                                                ? "bg-red-700 text-white font-medium"
+                                                                : "hover:bg-red-800",
                                                         )}
                                                     >
                                                         {child.icon}
-                                                        <span>{child.label}</span>
+                                                        {!isCollapsed && <span>{child.label}</span>}
                                                     </button>
                                                 </li>
                                             ))}
@@ -258,16 +278,20 @@ export function AdminSidebar({ onLogout, userName, onClose }: AdminSidebarProps)
                                 </>
                             ) : (
                                 <button
-                                    onClick={() => item.path && router.push(item.path)}
+                                    onClick={() => {
+                                        if (item.id === "dashboard") { onToggleCollapse(); }
+                                        item.path && router.push(item.path);
+                                        onClose?.();
+                                    }}
                                     className={cn(
                                         "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                                         isActive(item.path)
-                                            ? "bg-white/10 text-white"
-                                            : "text-white/70 hover:bg-white/5 hover:text-white",
+                                            ? "bg-red-700 text-white"
+                                            : "hover:bg-red-800",
                                     )}
                                 >
                                     {item.icon}
-                                    <span>{item.label}</span>
+                                    {!isCollapsed && <span>{item.label}</span>}
                                 </button>
                             )}
                         </li>
@@ -277,7 +301,7 @@ export function AdminSidebar({ onLogout, userName, onClose }: AdminSidebarProps)
 
             {/* User Info & Logout */}
             <div className="p-4 border-t border-white/10">
-                {userName && (
+                {!isCollapsed && userName && (
                     <div className="mb-3 px-3 py-2 bg-white/5 rounded-lg">
                         <p className="text-xs text-white/50">Usuario</p>
                         <p className="text-sm font-medium text-white truncate">{userName}</p>
@@ -285,11 +309,11 @@ export function AdminSidebar({ onLogout, userName, onClose }: AdminSidebarProps)
                 )}
                 <Button
                     variant="ghost"
-                    className="w-full justify-start text-white/70 hover:text-white hover:bg-white/5"
+                    className={`w-full justify-start bg-red-800 text-white hover:bg-red-700 ${isCollapsed ? "px-2" : ""}`}
                     onClick={onLogout}
                 >
                     <LogOut className="h-4 w-4 mr-3" />
-                    Cerrar Sesión
+                    {!isCollapsed && "Cerrar Sesión"}
                 </Button>
             </div>
         </aside>

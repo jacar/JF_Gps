@@ -60,7 +60,7 @@ export function AdminCameraViewer({ adminUser }: AdminCameraViewerProps) {
     if (selectedDriverId && !channelRef.current) {
       console.log("Attempting to subscribe to channel for selectedDriverId:", selectedDriverId);
       const channel = supabase.channel(`webrtc-signaling-${selectedDriverId}`)
-      channel.subscribe(async (status) => {
+      channel.subscribe(async (status: any) => {
         if (status === 'SUBSCRIBED') {
           console.log(`Subscribed to WebRTC signaling channel for driver ${selectedDriverId} (admin)`);
           setIsChannelSubscribed(true);
@@ -97,15 +97,17 @@ export function AdminCameraViewer({ adminUser }: AdminCameraViewerProps) {
           });
           setQueuedIceCandidates([]); // Clear the queue
 
-          await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(payload.payload.sdp));
-          const answer = await peerConnectionRef.current.createAnswer();
-          await peerConnectionRef.current.setLocalDescription(answer);
-          console.log('Sending WebRTC answer to driver', answer);
-          currentChannel.send({
-            type: 'broadcast',
-            event: 'webrtc-answer',
-            payload: { sdp: answer?.sdp, senderId: adminUser.id },
-          });
+          if (peerConnectionRef.current) {
+            await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(payload.payload.sdp));
+            const answer = await peerConnectionRef.current.createAnswer();
+            await peerConnectionRef.current.setLocalDescription(answer);
+            console.log('Sending WebRTC answer to driver', answer);
+            currentChannel.send({
+              type: 'broadcast',
+              event: 'webrtc-answer',
+              payload: { sdp: answer?.sdp, senderId: adminUser.id },
+            });
+          }
         } else {
           console.warn("Offer received for a different driver. Expected:", selectedDriverId, "Received:", payload.payload.senderId);
         }

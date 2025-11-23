@@ -233,4 +233,4 @@ El sistema está **100% funcional** para demostración y desarrollo. Solo falta 
 
 ---
 
-**Desarrollado para GPS JF Corp** 🚗📍
+**Desarrollado para RASTREA MÓVIL Corp** 🚗📍

@@ -13,7 +13,7 @@ export const viewport = {
 }
 
 export const metadata: Metadata = {
-  title: "GPS JF - Sistema de Rastreo Vehicular",
+  title: "RASTREA MÓVIL - Sistema de Rastreo Vehicular",
   description: "Sistema profesional de rastreo GPS en tiempo real para gestión de flotas y monitoreo de conductores",
   generator: "v0.app",
   icons: {

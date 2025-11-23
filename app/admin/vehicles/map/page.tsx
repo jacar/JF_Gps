@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client"
 import type { User } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, Truck, MapPin, Navigation, Layers } from "lucide-react"
+import { Search, Truck, MapPin, Navigation, Clock, Calendar, Menu, Route, List, X } from "lucide-react"
 
 interface VehicleLocation {
     id: string
@@ -19,6 +19,13 @@ interface VehicleLocation {
     speed: number
     status: "moving" | "stopped" | "idle"
     last_update: string
+    // Vehicle details
+    brand?: string
+    model?: string
+    plate?: string
+    color?: string
+    motion_detected?: boolean
+    last_motion_update?: string
 }
 
 export default function VehiclesMapPage() {
@@ -27,13 +34,35 @@ export default function VehiclesMapPage() {
     const [vehicles, setVehicles] = useState<VehicleLocation[]>([])
     const [selectedVehicle, setSelectedVehicle] = useState<VehicleLocation | null>(null)
     const [searchTerm, setSearchTerm] = useState("")
-    const [showPanel, setShowPanel] = useState(true)
-    const [mapCenter, setMapCenter] = useState<[number, number]>([-12.0464, -77.0428])
+    const [mapCenter, setMapCenter] = useState<[number, number]>([4.6097, -74.0817]) // Bogotá
     const [mapZoom, setMapZoom] = useState(13)
     const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null)
     const [trackingLocation, setTrackingLocation] = useState(false)
+    const [showSidebar, setShowSidebar] = useState(false)
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+
+    const toggleSidebar = () => {
+        setIsSidebarCollapsed(!isSidebarCollapsed)
+    }
+
+    const [activeRoutes, setActiveRoutes] = useState<any[]>([
+        { driverName: "Juan P", estimatedTime: "1h 00m", imageUrl: "/path/to/juan.png" }, // Placeholder
+        { driverName: "Maria S.", estimatedTime: "1h 05m", imageUrl: "/path/to/maria.png" }, // Placeholder
+    ]);
+    const [currentRoute, setCurrentRoute] = useState<{ origin: string; destination: string } | null>({
+        origin: "Caracas",
+        destination: "Maracaibo",
+    });
+    const [currentTime, setCurrentTime] = useState(new Date());
     const router = useRouter()
     const supabase = createClient()
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentTime(new Date());
+        }, 1000);
+        return () => clearInterval(timer);
+    }, []);
 
     useEffect(() => {
         const userData = localStorage.getItem("gps_jf_user")
@@ -103,35 +132,78 @@ export default function VehiclesMapPage() {
 
     const loadVehicles = async () => {
         try {
-            const { data: vehiclesData, error } = await supabase
-                .from("vehicles")
+            // 1. Fetch active trips
+            const { data: tripsData, error: tripsError } = await supabase
+                .from("trips")
                 .select(`
                     *,
-                    driver:users!vehicles_current_driver_id_fkey(full_name)
+                    driver:users(full_name)
                 `)
                 .eq("status", "active")
 
-            if (error) throw error
+            if (tripsError) throw tripsError
 
-            const mappedVehicles: VehicleLocation[] = vehiclesData.map((v: any) => {
-                // Determinar estado basado en velocidad
+            // 2. Fetch all vehicles to get latest location and motion sensor data
+            const { data: vehiclesData, error: vehiclesError } = await supabase
+                .from("vehicles")
+                .select("*")
+
+            if (vehiclesError) throw vehiclesError
+
+            // 3. Merge data
+            const mappedVehicles: VehicleLocation[] = (tripsData || []).map((trip: any) => {
+                const vehicle = vehiclesData?.find((v: any) => v.vehicle_number === trip.vehicle_number)
+
+                // Use vehicle location if available, otherwise trip start location
+                const lat = vehicle?.last_latitude || trip.start_latitude || 0
+                const lng = vehicle?.last_longitude || trip.start_longitude || 0
+                const speed = vehicle?.current_speed || 0
+                const lastUpdate = vehicle?.last_position_update || trip.created_at
+
+                // Calculate status based on motion sensor and speed
+                // Priority: motion_detected > speed > default stopped
                 let status: "moving" | "stopped" | "idle" = "stopped"
-                if (v.current_speed > 5) status = "moving"
-                else if (v.current_speed > 0) status = "idle"
+
+                if (vehicle?.motion_detected) {
+                    // If motion sensor detects movement, it's moving
+                    status = "moving"
+                } else if (speed >= 1) {
+                    // Fallback to speed if motion sensor not available
+                    status = "moving"
+                }
+                // else stopped
 
                 return {
-                    id: v.id,
-                    vehicle_number: v.vehicle_number,
-                    driver_name: v.driver?.full_name || "Sin conductor",
-                    latitude: v.last_latitude || 0,
-                    longitude: v.last_longitude || 0,
-                    speed: Math.round(v.current_speed || 0),
+                    id: trip.id,
+                    vehicle_number: trip.vehicle_number,
+                    driver_name: trip.driver?.full_name || "Conductor",
+                    latitude: lat,
+                    longitude: lng,
+                    speed: Math.round(speed),
                     status: status,
-                    last_update: v.last_position_update || v.updated_at,
+                    last_update: lastUpdate,
+                    // Vehicle details
+                    brand: vehicle?.brand,
+                    model: vehicle?.model,
+                    plate: vehicle?.plate,
+                    color: vehicle?.color,
+                    motion_detected: vehicle?.motion_detected,
+                    last_motion_update: vehicle?.last_motion_update,
                 }
             }).filter((v: VehicleLocation) => v.latitude !== 0 && v.longitude !== 0)
 
             setVehicles(mappedVehicles)
+
+            // Center map on vehicles if available
+            if (mappedVehicles.length > 0) {
+                const validLocations = mappedVehicles.filter(v => v.latitude !== 0 && v.longitude !== 0)
+                if (validLocations.length > 0) {
+                    const avgLat = validLocations.reduce((sum, v) => sum + v.latitude, 0) / validLocations.length
+                    const avgLng = validLocations.reduce((sum, v) => sum + v.longitude, 0) / validLocations.length
+                    setMapCenter([avgLat, avgLng])
+                    setMapZoom(validLocations.length === 1 ? 15 : 12)
+                }
+            }
         } catch (error) {
             console.error("Error loading vehicles:", error)
         } finally {
@@ -170,15 +242,64 @@ export default function VehiclesMapPage() {
 
     return (
         <div className="flex h-screen overflow-hidden bg-gray-50">
-            <AdminSidebar onLogout={handleLogout} userName={user?.full_name} />
+            {/* Mobile sidebar overlay */}
+            {showSidebar && (
+                <div
+                    className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+                    onClick={() => setShowSidebar(false)}
+                ></div>
+            )}
 
-            <div className="flex-1 ml-64 flex flex-col h-screen overflow-hidden">
+            {/* Admin Sidebar */}
+            <div
+                className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform ${showSidebar ? "translate-x-0" : "-translate-x-full"}
+                md:relative md:translate-x-0 transition-transform duration-200 ease-in-out`}
+            >
+                <AdminSidebar
+                    onLogout={handleLogout}
+                    userName={user?.full_name}
+                    onClose={() => setShowSidebar(false)}
+                    isCollapsed={isSidebarCollapsed}
+                    onToggleCollapse={toggleSidebar}
+                />
+            </div>
+
+            <div className={`flex-1 ml-0 md:${isSidebarCollapsed ? "ml-16" : "ml-64"} flex flex-col h-screen overflow-hidden`}>
                 {/* Header */}
                 <div className="bg-white border-b border-gray-200 px-8 py-4">
                     <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-900">Mapa de Vehículos</h1>
-                            <p className="text-sm text-gray-500 mt-1">Ubicación en tiempo real de la flota</p>
+                        <div className="flex items-center">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="mr-2 md:hidden"
+                                onClick={() => setShowSidebar(true)}
+                            >
+                                <Menu className="h-6 w-6" />
+                            </Button>
+                            <div>
+                                <h1 className="text-2xl font-bold text-gray-900">Mapa de Vehículos</h1>
+                                <p className="text-sm text-gray-500 mt-1">Ubicación en tiempo real de la flota</p>
+                            </div>
+                        </div>
+                        {/* Ruta Activa Info */}
+                        <div className="mt-4 flex items-center gap-4">
+                            {currentRoute && (
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                    <Navigation className="h-4 w-4 text-blue-500" />
+                                    <span>
+                                        <span className="font-medium">{currentRoute.origin}</span> a <span className="font-medium">{currentRoute.destination}</span>
+                                    </span>
+                                </div>
+                            )}
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <Clock className="h-4 w-4 text-gray-500" />
+                                <span>{currentTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <Calendar className="h-4 w-4 text-gray-500" />
+                                <span>{currentTime.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })}</span>
+                            </div>
                         </div>
                         <div className="flex items-center gap-2 px-4 py-2 bg-green-50 rounded-lg">
                             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -200,7 +321,7 @@ export default function VehiclesMapPage() {
                         <div className="bg-green-50 rounded-lg p-3">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-xs text-green-600 font-medium">En Movimiento</p>
+                                    <p className="text-xs text-green-600 font-medium">En Ruta</p>
                                     <p className="text-xl font-bold text-green-900 mt-1">{stats.moving}</p>
                                 </div>
                                 <Navigation className="h-6 w-6 text-green-600" />
@@ -215,101 +336,12 @@ export default function VehiclesMapPage() {
                                 <MapPin className="h-6 w-6 text-red-600" />
                             </div>
                         </div>
-                        <div className="bg-orange-50 rounded-lg p-3">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-xs text-orange-600 font-medium">Ralentí</p>
-                                    <p className="text-xl font-bold text-orange-900 mt-1">{stats.idle}</p>
-                                </div>
-                                <Truck className="h-6 w-6 text-orange-600" />
-                            </div>
-                        </div>
                     </div>
                 </div>
 
                 {/* Map and Panel Container */}
                 <div className="flex-1 relative overflow-hidden">
-                    {/* Vehicles Panel */}
-                    {showPanel && (
-                        <div className="absolute top-4 left-4 z-40 w-80 max-h-[calc(100vh-250px)] bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
-                            <div className="p-4 border-b border-gray-200">
-                                <div className="flex items-center justify-between mb-3">
-                                    <h3 className="font-semibold text-gray-900">Vehículos Activos</h3>
-                                    <button onClick={() => setShowPanel(false)} className="text-gray-400 hover:text-gray-600">
-                                        ✕
-                                    </button>
-                                </div>
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                    <Input
-                                        type="text"
-                                        placeholder="Buscar vehículo..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="pl-10 h-9"
-                                    />
-                                </div>
-                            </div>
 
-                            <div className="overflow-y-auto max-h-[calc(100vh-350px)]">
-                                {filteredVehicles.map((vehicle) => (
-                                    <div
-                                        key={vehicle.id}
-                                        onClick={() => setSelectedVehicle(vehicle)}
-                                        className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${selectedVehicle?.id === vehicle.id ? "bg-blue-50" : ""
-                                            }`}
-                                    >
-                                        <div className="flex items-start justify-between mb-2">
-                                            <div className="flex items-center gap-2">
-                                                <div
-                                                    className={`w-3 h-3 rounded-full ${vehicle.status === "moving"
-                                                        ? "bg-green-500 animate-pulse"
-                                                        : vehicle.status === "stopped"
-                                                            ? "bg-red-500"
-                                                            : "bg-orange-500"
-                                                        }`}
-                                                ></div>
-                                                <span className="font-semibold text-gray-900">{vehicle.vehicle_number}</span>
-                                            </div>
-                                            <span
-                                                className={`px-2 py-1 text-xs font-semibold rounded-full ${vehicle.status === "moving"
-                                                    ? "bg-green-100 text-green-800"
-                                                    : vehicle.status === "stopped"
-                                                        ? "bg-red-100 text-red-800"
-                                                        : "bg-orange-100 text-orange-800"
-                                                    }`}
-                                            >
-                                                {vehicle.status === "moving"
-                                                    ? "En movimiento"
-                                                    : vehicle.status === "stopped"
-                                                        ? "Detenido"
-                                                        : "Ralentí"}
-                                            </span>
-                                        </div>
-                                        <p className="text-sm text-gray-600 mb-1">{vehicle.driver_name}</p>
-                                        <div className="flex items-center justify-between text-xs text-gray-500">
-                                            <span className="flex items-center gap-1">
-                                                <Navigation className="h-3 w-3" />
-                                                {vehicle.speed} km/h
-                                            </span>
-                                            <span>{new Date(vehicle.last_update).toLocaleTimeString("es-ES")}</span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Toggle Panel Button */}
-                    {!showPanel && (
-                        <button
-                            onClick={() => setShowPanel(true)}
-                            className="absolute top-4 left-4 z-40 bg-white shadow-lg rounded-lg px-4 py-2 text-sm font-medium hover:bg-gray-50 transition-colors flex items-center gap-2"
-                        >
-                            <Layers className="h-4 w-4" />
-                            Mostrar Vehículos
-                        </button>
-                    )}
 
                     {/* Center on My Location Button */}
                     {myLocation && (
@@ -336,25 +368,24 @@ export default function VehiclesMapPage() {
                                 setMapCenter(center)
                                 setMapZoom(zoom)
                             }}
+                            onClick={() => setSelectedVehicle(null)}
                         >
                             {filteredVehicles.map((vehicle) => (
                                 <Marker
                                     key={vehicle.id}
-                                    width={50}
+                                    width={60}
                                     anchor={[vehicle.latitude, vehicle.longitude]}
-                                    onClick={() => setSelectedVehicle(vehicle)}
+                                    onClick={({ event }) => {
+                                        event.stopPropagation()
+                                        setSelectedVehicle(vehicle)
+                                    }}
                                 >
-                                    <div className="relative flex items-center justify-center">
-                                        <div
-                                            className={`w-10 h-10 rounded-full flex items-center justify-center shadow-lg cursor-pointer ${vehicle.status === "moving"
-                                                ? "bg-green-500 animate-pulse"
-                                                : vehicle.status === "stopped"
-                                                    ? "bg-red-500"
-                                                    : "bg-orange-500"
-                                                } ${selectedVehicle?.id === vehicle.id ? "ring-4 ring-blue-400" : ""}`}
-                                        >
-                                            <Truck className="h-5 w-5 text-white" />
-                                        </div>
+                                    <div className="relative flex items-center justify-center cursor-pointer">
+                                        <img
+                                            src={vehicle.status === "moving" ? "/carro_g_n.png" : "/carro_r_s.png"}
+                                            alt="Vehicle"
+                                            className={`w-12 h-12 object-contain ${selectedVehicle?.id === vehicle.id ? "drop-shadow-[0_0_8px_rgba(59,130,246,0.8)]" : ""}`}
+                                        />
                                     </div>
                                 </Marker>
                             ))}
@@ -374,48 +405,91 @@ export default function VehiclesMapPage() {
                             )}
 
                             {selectedVehicle && (
-                                <Overlay anchor={[selectedVehicle.latitude, selectedVehicle.longitude]} offset={[0, -60]}>
-                                    <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-3 min-w-[200px]">
-                                        <div className="text-center">
-                                            <p className="font-bold text-gray-900 mb-1">{selectedVehicle.vehicle_number}</p>
-                                            <p className="text-sm text-gray-600 mb-2">{selectedVehicle.driver_name}</p>
-                                            <div className="space-y-1 text-xs">
-                                                <div className="flex justify-between">
-                                                    <span className="text-gray-500">Velocidad:</span>
-                                                    <span className="font-medium text-gray-900">{selectedVehicle.speed} km/h</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span className="text-gray-500">Estado:</span>
-                                                    <span
-                                                        className={`font-medium ${selectedVehicle.status === "moving"
-                                                            ? "text-green-600"
-                                                            : selectedVehicle.status === "stopped"
-                                                                ? "text-red-600"
-                                                                : "text-orange-600"
-                                                            }`}
-                                                    >
-                                                        {selectedVehicle.status === "moving"
-                                                            ? "En movimiento"
-                                                            : selectedVehicle.status === "stopped"
-                                                                ? "Detenido"
-                                                                : "Ralentí"}
-                                                    </span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span className="text-gray-500">Actualizado:</span>
-                                                    <span className="font-medium text-gray-900">
-                                                        {new Date(selectedVehicle.last_update).toLocaleTimeString("es-ES")}
-                                                    </span>
-                                                </div>
+                                <Overlay anchor={[selectedVehicle.latitude, selectedVehicle.longitude]} offset={[0, -70]}>
+                                    <div className="bg-white rounded-lg shadow-2xl border border-gray-300 p-4 min-w-[280px] max-w-[320px] relative">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                setSelectedVehicle(null)
+                                            }}
+                                            className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 z-10"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                        {/* Header */}
+                                        <div className="border-b border-gray-200 pb-3 mb-3">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <h3 className="font-bold text-lg text-gray-900">{selectedVehicle.vehicle_number}</h3>
+                                                <span
+                                                    className={`px-2 py-1 text-xs font-semibold rounded-full ${selectedVehicle.status === "moving"
+                                                        ? "bg-green-100 text-green-800"
+                                                        : "bg-red-100 text-red-800"
+                                                        }`}
+                                                >
+                                                    {selectedVehicle.status === "moving" ? "En ruta" : "Detenido"}
+                                                </span>
                                             </div>
-                                            <Button
-                                                size="sm"
-                                                className="w-full mt-3 bg-[#1e3a5f] hover:bg-[#2d5a8f]"
-                                                onClick={() => router.push(`/admin?vehicle=${selectedVehicle.id}`)}
-                                            >
-                                                Ver Detalles
-                                            </Button>
+                                            {(selectedVehicle.brand || selectedVehicle.model) && (
+                                                <p className="text-sm text-gray-600">
+                                                    {selectedVehicle.brand} {selectedVehicle.model}
+                                                    {selectedVehicle.color && ` • ${selectedVehicle.color}`}
+                                                </p>
+                                            )}
+                                            {selectedVehicle.plate && (
+                                                <p className="text-xs text-gray-500 mt-1">Placa: {selectedVehicle.plate}</p>
+                                            )}
                                         </div>
+
+                                        {/* Driver Info */}
+                                        <div className="mb-3">
+                                            <p className="text-xs text-gray-500 mb-1">Conductor</p>
+                                            <p className="text-sm font-medium text-gray-900">{selectedVehicle.driver_name}</p>
+                                        </div>
+
+                                        {/* Vehicle Stats */}
+                                        <div className="grid grid-cols-2 gap-2 mb-3">
+                                            <div className="bg-blue-50 rounded p-2">
+                                                <p className="text-xs text-blue-600 mb-1">Velocidad</p>
+                                                <p className="text-lg font-bold text-blue-900">{selectedVehicle.speed} <span className="text-xs">km/h</span></p>
+                                            </div>
+                                            <div className={`rounded p-2 ${selectedVehicle.motion_detected ? "bg-green-50" : "bg-gray-50"}`}>
+                                                <p className={`text-xs mb-1 ${selectedVehicle.motion_detected ? "text-green-600" : "text-gray-600"}`}>Sensor</p>
+                                                <p className={`text-sm font-bold ${selectedVehicle.motion_detected ? "text-green-900" : "text-gray-900"}`}>
+                                                    {selectedVehicle.motion_detected ? "Movimiento" : "Detenido"}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Last Update */}
+                                        <div className="text-xs text-gray-500 mb-3">
+                                            <div className="flex items-center gap-1">
+                                                <Clock className="h-3 w-3" />
+                                                <span>Actualizado: {new Date(selectedVehicle.last_update).toLocaleString("es-ES", {
+                                                    hour: '2-digit',
+                                                    minute: '2-digit',
+                                                    second: '2-digit'
+                                                })}</span>
+                                            </div>
+                                            {selectedVehicle.last_motion_update && (
+                                                <div className="flex items-center gap-1 mt-1">
+                                                    <Navigation className="h-3 w-3" />
+                                                    <span>Sensor: {new Date(selectedVehicle.last_motion_update).toLocaleString("es-ES", {
+                                                        hour: '2-digit',
+                                                        minute: '2-digit'
+                                                    })}</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Action Button */}
+                                        <Button
+                                            size="sm"
+                                            className="w-full bg-[#1e3a5f] hover:bg-[#2d5a8f]"
+                                            onClick={() => router.push(`/admin/vehicles?id=${selectedVehicle.id}`)}
+                                        >
+                                            Ver Historial Completo
+                                        </Button>
+
                                         {/* Arrow */}
                                         <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
                                             <div className="w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-white"></div>

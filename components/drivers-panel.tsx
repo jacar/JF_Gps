@@ -75,7 +75,7 @@ export function DriversPanel({ onDriverSelect, selectedTripId, onClose }: Driver
       setActiveDrivers(activeTrips as TripWithDriver[])
 
       // Fetch latest location for each active trip
-      const locationPromises = activeTrips.map(async (trip) => {
+      const locationPromises = activeTrips.map(async (trip: any) => {
         const { data: locations } = await supabase
           .from("trip_locations")
           .select("*")
@@ -149,7 +149,7 @@ export function DriversPanel({ onDriverSelect, selectedTripId, onClose }: Driver
       </CardHeader>
       <CardContent className="p-0 flex flex-col h-full">
         <Tabs defaultValue="active" className="w-full flex-1 flex flex-col">
-          <TabsList className="w-full grid grid-cols-1 roundeda_none border-b">
+          <TabsList className="w-full grid grid-cols-1 rounded-none border-b">
             <TabsTrigger value="active" className="relative">
               Activos
               <Badge variant="secondary" className="ml-2 h-5 min-w-[20px] px-1">
@@ -175,8 +175,8 @@ export function DriversPanel({ onDriverSelect, selectedTripId, onClose }: Driver
                     return (
                       <Button
                         key={trip.id}
-                        variant={isSelected ? "secondary" : "ghost"}
-                        className="w-full h-auto p-3 justify-start hover:bg-accent"
+                        variant={isSelected ? "secondary" : "outline"}
+                        className="w-full h-auto p-3 justify-start hover:bg-red-100"
                         onClick={() => onDriverSelect(isSelected ? null : trip)}
                       >
                         <div className="flex-1 text-left space-y-2">
@@ -186,7 +186,7 @@ export function DriversPanel({ onDriverSelect, selectedTripId, onClose }: Driver
                                 <Car className="h-4 w-4 text-green-500" />
                               </div>
                               <div>
-                                <p className="font-medium text-sm leading-none">{trip.driver.full_name}</p>
+                                <p className="font-medium text-sm leading-none text-red-700">{trip.driver.full_name}</p>
                                 <p className="text-xs text-muted-foreground mt-1">{trip.vehicle_number}</p>
                                 {trip.driver.imei && (
                                   <div className="flex items-center gap-1 mt-0.5">

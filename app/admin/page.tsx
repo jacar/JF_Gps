@@ -18,6 +18,9 @@ export default function AdminPage() {
   const router = useRouter()
   const supabase = createClient()
 
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const toggleSidebar = () => setIsSidebarCollapsed(!isSidebarCollapsed);
+
   useEffect(() => {
     const userData = localStorage.getItem("gps_jf_user")
 
@@ -60,8 +63,8 @@ export default function AdminPage() {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-card border-r transition-transform duration-300 ease-in-out ${showSidebar ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}>
-        <AdminSidebar onLogout={handleLogout} userName={user?.full_name} onClose={() => setShowSidebar(false)} />
+      <div className={`fixed inset-y-0 left-0 z-50 bg-card border-r transition-transform duration-300 ease-in-out ${showSidebar ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 ${isSidebarCollapsed ? "md:w-16" : "md:w-64"}`}>
+        <AdminSidebar onLogout={handleLogout} userName={user?.full_name} onClose={() => setShowSidebar(false)} isCollapsed={isSidebarCollapsed} onToggleCollapse={toggleSidebar} />
       </div>
 
       {/* Overlay for mobile sidebar */}
@@ -73,28 +76,27 @@ export default function AdminPage() {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col md:flex-row h-screen overflow-hidden md:ml-64">
+      <div className={`flex-1 flex flex-col md:flex-row h-screen overflow-hidden ${isSidebarCollapsed ? "md:ml-16" : "md:ml-64"}`}>
         {/* Toggle Sidebar Button for mobile */}
         <button
           onClick={() => setShowSidebar(true)}
-          className="absolute top-4 left-4 z-40 bg-white shadow-lg rounded-lg p-2 md:hidden"
+          className="absolute top-4 left-4 z-40 bg-red-700 text-white shadow-lg rounded-lg p-2 md:hidden"
         >
           <Menu className="h-6 w-6" />
         </button>
 
-        {/* Drivers Panel - Collapsible */}
-        {showDriversPanel && (
-          <div className="fixed inset-x-0 bottom-0 z-40 w-full max-h-[50vh] overflow-y-auto bg-background p-4 md:relative md:top-auto md:left-auto md:w-96 md:h-full md:overflow-y-auto md:bg-transparent md:p-0">
-            <DriversPanel
-              onDriverSelect={handleDriverSelect}
-              selectedTripId={selectedTrip?.id || null}
-              onClose={() => setShowDriversPanel(false)}
-            />
-          </div>
-        )}
-
         {/* Map - Full Screen */}
-        <div className="flex-1 relative">
+        <div className="flex-1 relative h-full">
+          {/* Drivers Panel - Collapsible */}
+          {showDriversPanel && (
+            <div className="absolute top-0 left-0 z-40 h-full w-full md:w-80 bg-white/90 backdrop-blur-sm shadow-xl transition-all duration-300 overflow-y-auto">
+              <DriversPanel
+                onDriverSelect={handleDriverSelect}
+                selectedTripId={selectedTrip?.id || null}
+                onClose={() => setShowDriversPanel(false)}
+              />
+            </div>
+          )}
           <AdminMap
             selectedTripId={selectedTrip?.id || null}
             onTripSelect={(id) => {
@@ -110,7 +112,7 @@ export default function AdminPage() {
         {!showDriversPanel && (
           <button
             onClick={() => setShowDriversPanel(true)}
-            className="fixed bottom-4 right-4 z-40 bg-white shadow-lg rounded-full p-3 text-sm font-medium hover:bg-gray-50 transition-colors md:absolute md:top-4 md:left-4 md:rounded-lg md:px-4 md:py-2"
+            className="fixed top-4 right-4 z-40 bg-red-700 hover:bg-red-800 text-white shadow-lg rounded-lg px-4 py-2 text-sm font-medium md:absolute md:top-4 md:left-4"
           >
             Mostrar Conductores
           </button>

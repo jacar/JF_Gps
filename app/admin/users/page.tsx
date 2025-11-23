@@ -17,6 +17,9 @@ export default function UsersPage() {
     const router = useRouter()
     const supabase = createClient()
 
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    const toggleSidebar = () => setIsSidebarCollapsed(!isSidebarCollapsed);
+
     useEffect(() => {
         const userData = localStorage.getItem("gps_jf_user")
 
@@ -82,9 +85,9 @@ export default function UsersPage() {
 
     return (
         <div className="flex h-screen overflow-hidden bg-gray-50">
-            <AdminSidebar onLogout={handleLogout} userName={user?.full_name} />
+            <AdminSidebar onLogout={handleLogout} userName={user?.full_name} isCollapsed={isSidebarCollapsed} onToggleCollapse={toggleSidebar} />
 
-            <div className="flex-1 ml-64 flex flex-col overflow-hidden">
+            <div className={`flex-1 ${isSidebarCollapsed ? "ml-16" : "ml-64"} flex flex-col overflow-hidden`}>
                 {/* Header */}
                 <div className="bg-white border-b border-gray-200 px-8 py-6">
                     <div className="flex items-center justify-between">

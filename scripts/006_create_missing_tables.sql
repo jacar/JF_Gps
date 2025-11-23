@@ -15,6 +15,8 @@ create table if not exists public.vehicles (
   last_longitude double precision,
   current_speed double precision,
   last_position_update timestamp with time zone,
+  motion_detected boolean default false,
+  last_motion_update timestamp with time zone,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
