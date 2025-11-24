@@ -20,16 +20,16 @@ const Speedometer = ({ speed }: { speed: number }) => {
   const rotation = (clampedSpeed / 180) * 180 - 90 // -90 to 90 degrees
 
   return (
-    <div className="relative w-48 h-24 overflow-hidden mx-auto">
-      <div className="absolute w-40 h-40 bg-gray-800 rounded-full top-4 left-4 border-8 border-gray-700"></div>
+    <div className="relative w-32 h-16 sm:w-40 sm:h-20 md:w-48 md:h-24 overflow-hidden mx-auto">
+      <div className="absolute w-28 h-28 sm:w-32 sm:h-32 md:w-40 md:h-40 bg-gray-800 rounded-full top-2 left-2 sm:top-4 sm:left-4 border-4 sm:border-6 md:border-8 border-gray-700"></div>
       {/* Gauge Arc (Simplified with CSS gradients or just a needle for now) */}
       <div
-        className="absolute w-1 h-20 bg-red-500 origin-bottom left-1/2 top-4 transition-transform duration-500 ease-out"
+        className="absolute w-1 h-14 sm:h-16 md:h-20 bg-red-500 origin-bottom left-1/2 top-2 sm:top-4 transition-transform duration-500 ease-out"
         style={{ transform: `translateX(-50%) rotate(${rotation}deg)` }}
       ></div>
       <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 text-center">
-        <span className="text-3xl font-bold text-white">{Math.round(speed)}</span>
-        <span className="text-xs text-gray-400 block">KM/H</span>
+        <span className="text-xl sm:text-2xl md:text-3xl font-bold text-white">{Math.round(speed)}</span>
+        <span className="text-[10px] sm:text-xs text-gray-400 block">KM/H</span>
       </div>
     </div>
   )
@@ -322,27 +322,27 @@ export default function DriverPage() {
   return (
     <div className="min-h-screen bg-gray-900 text-white font-sans p-4 md:p-6">
       {/* Header */}
-      <header className="flex justify-between items-center mb-8">
-        <h1 className="text-xl font-bold text-gray-200">Panel del Conductor</h1>
-        <Button onClick={handleLogout} variant="outline" size="sm" className="border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white">
-          <LogOut className="h-4 w-4 mr-2" /> Cerrar Sesión
+      <header className="flex justify-between items-center mb-4 sm:mb-6 md:mb-8">
+        <h1 className="text-lg sm:text-xl font-bold text-gray-200">Panel del Conductor</h1>
+        <Button onClick={handleLogout} variant="outline" size="sm" className="border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white text-xs sm:text-sm">
+          <LogOut className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" /> <span className="hidden sm:inline">Cerrar Sesión</span><span className="sm:hidden">Salir</span>
         </Button>
       </header>
 
       {/* Main Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6">
 
         {/* Left Column: Profile (3 cols) */}
         <div className="md:col-span-3 space-y-6">
           <div className="flex flex-col items-center text-center space-y-4">
-            <div className="w-32 h-32 rounded-full bg-gradient-to-tr from-cyan-400 to-blue-600 p-1">
+            <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-gradient-to-tr from-cyan-400 to-blue-600 p-1">
               <div className="w-full h-full rounded-full bg-gray-800 flex items-center justify-center overflow-hidden">
-                <UserIcon className="h-16 w-16 text-gray-400" />
+                <UserIcon className="h-12 w-12 sm:h-16 sm:w-16 text-gray-400" />
               </div>
             </div>
             <div>
-              <h2 className="text-2xl font-bold">{user?.full_name || "Conductor"}</h2>
-              <p className="text-gray-400">ID: {user?.id?.slice(0, 8).toUpperCase()}</p>
+              <h2 className="text-xl sm:text-2xl font-bold">{user?.full_name || "Conductor"}</h2>
+              <p className="text-sm sm:text-base text-gray-400">ID: {user?.id?.slice(0, 8).toUpperCase()}</p>
             </div>
             <div className="flex items-center gap-2 bg-gray-800 px-4 py-2 rounded-full">
               <MapPin className="h-4 w-4 text-gray-400" />
@@ -413,16 +413,16 @@ export default function DriverPage() {
 
           {/* Dashboard Gauges */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-gray-800/50 rounded-xl p-4 flex flex-col items-center justify-center border border-gray-700">
+            <div className="bg-gray-800/50 rounded-xl p-2 sm:p-4 flex flex-col items-center justify-center border border-gray-700">
               <Speedometer speed={currentSpeed} />
-              <span className="text-gray-400 font-serif mt-2">Velocidad Actual</span>
+              <span className="text-gray-400 font-serif mt-1 sm:mt-2 text-xs sm:text-sm text-center">Velocidad Actual</span>
             </div>
-            <div className="bg-gray-800/50 rounded-xl p-4 flex flex-col items-center justify-center border border-gray-700">
-              <div className="text-5xl font-mono font-bold text-red-500 tracking-wider">
+            <div className="bg-gray-800/50 rounded-xl p-2 sm:p-4 flex flex-col items-center justify-center border border-gray-700">
+              <div className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-mono font-bold text-red-500 tracking-wider break-all text-center">
                 {formatSecondsToHMS(tripDuration)}
               </div>
-              <span className="text-gray-400 font-serif mt-2 uppercase tracking-widest text-sm">Tiempo de Viaje</span>
-              <div className="w-8 h-8 rounded-full border-4 border-t-cyan-500 border-r-gray-700 border-b-gray-700 border-l-gray-700 mt-2 animate-spin"></div>
+              <span className="text-gray-400 font-serif mt-1 sm:mt-2 uppercase tracking-widest text-xs sm:text-sm text-center">Tiempo de Viaje</span>
+              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full border-4 border-t-cyan-500 border-r-gray-700 border-b-gray-700 border-l-gray-700 mt-1 sm:mt-2 animate-spin"></div>
             </div>
           </div>
 
