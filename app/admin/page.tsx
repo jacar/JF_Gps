@@ -8,6 +8,7 @@ import { DriversPanel } from "@/components/drivers-panel"
 import { createClient } from "@/lib/supabase/client"
 import type { User, TripWithDriver } from "@/lib/types"
 import { Menu } from "lucide-react"
+import { AdminCameraViewer } from "@/components/admin-camera-viewer"
 
 export default function AdminPage() {
   const [user, setUser] = useState<User | null>(null)
@@ -15,6 +16,7 @@ export default function AdminPage() {
   const [selectedTrip, setSelectedTrip] = useState<TripWithDriver | null>(null)
   const [showDriversPanel, setShowDriversPanel] = useState(true)
   const [showSidebar, setShowSidebar] = useState(false)
+  const [showCameraViewer, setShowCameraViewer] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -84,6 +86,13 @@ export default function AdminPage() {
         >
           <Menu className="h-6 w-6" />
         </button>
+        {/* Toggle Camera Viewer Button */}
+        <button
+          onClick={() => setShowCameraViewer(!showCameraViewer)}
+          className="absolute top-4 left-16 z-40 bg-blue-600 text-white shadow-lg rounded-lg px-3 py-1 md:hidden"
+        >
+          {showCameraViewer ? "Ocultar Cámara" : "Ver Cámara"}
+        </button>
 
         {/* Map - Full Screen */}
         <div className="flex-1 relative h-full">
@@ -106,6 +115,18 @@ export default function AdminPage() {
               }
             }}
           />
+          {/* Admin Camera Viewer */}
+          {showCameraViewer && user && (
+            <div className="absolute inset-0 z-50 bg-black/70 p-4">
+              <AdminCameraViewer adminUser={user} />
+              <button
+                onClick={() => setShowCameraViewer(false)}
+                className="mt-2 bg-red-600 text-white px-3 py-1 rounded"
+              >
+                Cerrar Cámara
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Toggle Drivers Panel Button */}

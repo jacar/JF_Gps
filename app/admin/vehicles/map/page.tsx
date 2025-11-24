@@ -58,9 +58,7 @@ export default function VehiclesMapPage() {
     const supabase = createClient()
 
     useEffect(() => {
-        const timer = setInterval(() => {
-            setCurrentTime(new Date());
-        }, 1000);
+        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
 
@@ -162,7 +160,7 @@ export default function VehiclesMapPage() {
 
                 // Calculate status based on motion sensor and speed
                 // Priority: motion_detected > speed > default stopped
-                let status: "moving" | "stopped" | "idle" = "stopped"
+                let status: "moving" | "stopped" | "idle" | "offline" = "stopped"
 
                 if (vehicle?.motion_detected) {
                     // If motion sensor detects movement, it's moving
@@ -361,7 +359,6 @@ export default function VehiclesMapPage() {
                 {/* Map and Panel Container */}
                 <div className="flex-1 relative overflow-hidden">
 
-
                     {/* Center on My Location Button */}
                     {myLocation && (
                         <button
@@ -468,8 +465,8 @@ export default function VehiclesMapPage() {
                                         {/* Vehicle Stats */}
                                         <div className="grid grid-cols-2 gap-2 mb-3">
                                             <div className="bg-blue-50 rounded p-2">
-                                                <p className="text-xs text-blue-600 mb-1">Velocidad</p>
-                                                <p className="text-lg font-bold text-blue-900">{selectedVehicle.speed} <span className="text-xs">km/h</span></p>
+                                                <p className="text-xs text-blue-600 font-medium">Velocidad</p>
+                                                <p className="text-xl font-bold text-blue-900 mt-1">{selectedVehicle.speed} <span className="text-xs">km/h</span></p>
                                             </div>
                                             <div className={`rounded p-2 ${selectedVehicle.motion_detected ? "bg-green-50" : "bg-gray-50"}`}>
                                                 <p className={`text-xs mb-1 ${selectedVehicle.motion_detected ? "text-green-600" : "text-gray-600"}`}>Sensor</p>
