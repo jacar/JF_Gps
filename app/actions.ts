@@ -135,30 +135,40 @@ export async function endTrip(
   avgSpeed: number,
 ) {
   try {
+    console.log(`[endTrip] Starting for trip ${tripId}`)
+    const startTime = Date.now()
+
     const supabase = await createClient()
-    const { data, error } = await supabase
+    console.log(`[endTrip] Supabase client created in ${Date.now() - startTime}ms`)
+
+    const updateData = {
+      end_latitude: latitude,
+      end_longitude: longitude,
+      end_time: new Date().toISOString(),
+      total_distance_km: totalDistance,
+      max_speed_kmh: maxSpeed,
+      average_speed_kmh: avgSpeed,
+      status: "completed" as const
+    }
+
+    console.log(`[endTrip] Updating trip with data:`, updateData)
+
+    const { error } = await supabase
       .from("trips")
-      .update({
-        end_latitude: latitude,
-        end_longitude: longitude,
-        end_time: new Date().toISOString(),
-        total_distance_km: totalDistance,
-        max_speed_kmh: maxSpeed,
-        average_speed_kmh: avgSpeed,
-        status: "completed"
-      })
+      .update(updateData)
       .eq("id", tripId)
-      .select()
-      .single()
+
+    console.log(`[endTrip] Update completed in ${Date.now() - startTime}ms`)
 
     if (error) {
-      console.error("Error al finalizar viaje:", error)
+      console.error("[endTrip] Error al finalizar viaje:", error)
       throw error
     }
 
-    return data
+    console.log(`[endTrip] Trip ${tripId} ended successfully`)
+    return { success: true }
   } catch (error) {
-    console.error("Excepción en endTrip:", error)
+    console.error("[endTrip] Excepción en endTrip:", error)
     throw error
   }
 }
@@ -281,4 +291,91 @@ export async function getActiveTrip(driverId: string) {
   }
 
   return data
+}
+
+export async function closeStaleTrips() {
+  const supabase = await createClient()
+  const now = new Date()
+  const staleThresholdHours = 12 // Consider stale if no update for 12 hours
+
+  try {
+    // 1. Get all active trips
+    const { data: activeTrips, error } = await supabase
+      .from("trips")
+      .select("id, start_time, vehicle_number")
+      .eq("status", "active")
+
+    if (error) throw error
+    if (!activeTrips || activeTrips.length === 0) return 0
+
+    let closedCount = 0
+
+    for (const trip of activeTrips) {
+      // 2. Check last location update for this trip
+      const { data: lastLoc } = await supabase
+        .from("trip_locations")
+        .select("timestamp")
+        .eq("trip_id", trip.id)
+        .order("timestamp", { ascending: false })
+        .limit(1)
+        .single()
+
+      let lastActivityTime = new Date(trip.start_time)
+      if (lastLoc) {
+        lastActivityTime = new Date(lastLoc.timestamp)
+      }
+
+      const hoursSinceActivity = (now.getTime() - lastActivityTime.getTime()) / (1000 * 60 * 60)
+
+      if (hoursSinceActivity > staleThresholdHours) {
+        // 3. Force close the trip
+        await supabase
+          .from("trips")
+          .update({
+            status: "completed",
+            end_time: now.toISOString(),
+            // We leave lat/long as is or could update to last known if we fetched it
+          })
+          .eq("id", trip.id)
+
+        closedCount++
+      }
+    }
+
+    revalidatePath("/")
+    return closedCount
+  } catch (error) {
+    console.error("Error closing stale trips:", error)
+    throw error
+  }
+}
+
+export async function sendTestAlarmEmail(recipientEmail: string) {
+  "use server"
+
+  try {
+    const { sendEmail } = await import('@/lib/email')
+
+    const result = await sendEmail({
+      to: recipientEmail,
+      subject: '🚨 Alarma de Prueba - GPS JF',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #1e3a5f;">Alarma de Prueba</h2>
+          <p>Este es un correo de prueba del sistema GPS JF.</p>
+          <p>Si recibiste este correo, significa que la configuración SMTP está funcionando correctamente.</p>
+          <hr style="border: 1px solid #eee; margin: 20px 0;">
+          <p style="color: #666; font-size: 12px;">
+            Sistema de Rastreo GPS JF<br>
+            ${new Date().toLocaleString('es-ES')}
+          </p>
+        </div>
+      `
+    })
+
+    return result
+  } catch (error: any) {
+    console.error("Error sending test email:", error)
+    return { success: false, message: error.message || 'Error inesperado' }
+  }
 }

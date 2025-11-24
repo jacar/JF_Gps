@@ -16,6 +16,8 @@ export function GPSTracker({ userId, vehicleId, tripId, isTripActive, onLocation
   const [distance, setDistance] = useState(0);
   const [maxSpeed, setMaxSpeed] = useState(0);
 
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   const watchId = useRef<number | null>(null);
   const lastLocation = useRef<{ lat: number; lng: number } | null>(null);
   const distanceRef = useRef(0);
@@ -34,10 +36,21 @@ export function GPSTracker({ userId, vehicleId, tripId, isTripActive, onLocation
   };
 
   useEffect(() => {
-    if (isTripActive) {
+    const isMounted = { current: true };
+
+    if (isTripActive && tripId) {
       if (!watchId.current) {
+        console.log(`[GPSTracker] Starting watch for trip ${tripId}`)
+        setErrorMsg(null); // Clear previous errors
+
         watchId.current = navigator.geolocation.watchPosition(
           async (position) => {
+            if (!isMounted.current || !isTripActive) {
+              console.warn('[GPSTracker] Component unmounted or trip inactive, skipping update');
+              return;
+            }
+
+            setErrorMsg(null); // Clear error on success
             const { latitude, longitude, speed } = position.coords;
             const newSpeed = speed !== null ? speed * 3.6 : 0; // m/s to km/h
             // Update refs and state for speed
@@ -68,43 +81,83 @@ export function GPSTracker({ userId, vehicleId, tripId, isTripActive, onLocation
             // Pass fresh values to parent
             onLocationUpdate(newSpeed, newDistance, newMaxSpeed, latitude, longitude);
 
-            try {
-              await addTripLocation(userId, vehicleId, latitude, longitude, newSpeed);
-            } catch (error) {
-              console.error("Error adding trip location:", error);
+            // Only try to add location if we still have a valid tripId
+            if (tripId && isTripActive) {
+              try {
+                await addTripLocation(userId, vehicleId, latitude, longitude, newSpeed);
+              } catch (error) {
+                console.error("[GPSTracker] Error adding trip location:", error);
+              }
+            } else {
+              console.warn('[GPSTracker] Skipping location update - no active trip')
             }
           },
           (error) => {
-            console.error("Geolocation error:", error);
+            if (!isMounted.current) return;
+            console.error("[GPSTracker] Geolocation error object:", error);
+            console.error(`[GPSTracker] Error Code: ${error.code}, Message: ${error.message}`);
+
+            let message = "Error de GPS desconocido";
+            switch (error.code) {
+              case 1: // PERMISSION_DENIED
+                message = "Permiso de ubicación denegado. Por favor actívalo.";
+                console.error("[GPSTracker] User denied the request for Geolocation.");
+                break;
+              case 2: // POSITION_UNAVAILABLE
+                message = "Ubicación no disponible. Buscando señal...";
+                console.error("[GPSTracker] Location information is unavailable.");
+                break;
+              case 3: // TIMEOUT
+                message = "Tiempo de espera agotado. Reintentando...";
+                console.error("[GPSTracker] The request to get user location timed out.");
+                break;
+              default:
+                message = `Error de GPS: ${error.message}`;
+                console.error("[GPSTracker] An unknown error occurred.");
+                break;
+            }
+            setErrorMsg(message);
           },
           {
             enableHighAccuracy: true,
-            timeout: 5000,
+            timeout: 30000, // Increased to 30s
             maximumAge: 0
           }
         );
       }
     } else {
       if (watchId.current) {
+        console.log('[GPSTracker] Stopping watch')
         navigator.geolocation.clearWatch(watchId.current);
         watchId.current = null;
         lastLocation.current = null;
         setCurrentSpeed(0);
         setDistance(0);
         setMaxSpeed(0);
+        distanceRef.current = 0;
+        maxSpeedRef.current = 0;
+        setErrorMsg(null);
       }
     }
 
     return () => {
+      isMounted.current = false;
       if (watchId.current) {
+        console.log('[GPSTracker] Cleanup: clearing watch')
         navigator.geolocation.clearWatch(watchId.current);
         watchId.current = null;
       }
     };
-  }, [isTripActive, userId, vehicleId, onLocationUpdate]);
+  }, [isTripActive, tripId, userId, vehicleId, onLocationUpdate]);
 
   return (
     <div className="flex flex-col items-center justify-center p-4">
+      {errorMsg && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded mb-4 text-center">
+          <p className="font-bold">⚠️ GPS Error</p>
+          <p>{errorMsg}</p>
+        </div>
+      )}
       <p className="text-2xl font-bold">{currentSpeed.toFixed(2)} km/h</p>
       <p>Distancia: {distance.toFixed(2)} km</p>
       <p>Velocidad Máxima: {maxSpeed.toFixed(2)} km/h</p>

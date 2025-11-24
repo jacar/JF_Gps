@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { formatSecondsToHMS } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -47,6 +47,27 @@ export default function DriverPage() {
   const speedsRef = useRef<number[]>([])
   const cameraRef = useRef<DriverCameraRef>(null)
 
+  // Stable callback to prevent infinite re-renders in GPSTracker
+  const handleLocationUpdate = useCallback((speed: number, dist: number, maxSpd: number, lat: number, lng: number) => {
+    setCurrentSpeed(speed);
+    setDistance(dist);
+    setMaxSpeed(maxSpd);
+    lastPositionRef.current = { lat, lng };
+    setCurrentLocation({ lat, lng });
+    speedsRef.current.push(speed);
+  }, []);
+
+  // Stable callback that includes debug info updates
+  const onLocationUpdateWithDebug = useCallback((speed: number, dist: number, maxSpd: number, lat: number, lng: number) => {
+    handleLocationUpdate(speed, dist, maxSpd, lat, lng);
+    setDebugInfo({
+      lastUpdate: new Date().toLocaleTimeString(),
+      lastCoords: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+      apiStatus: "Auto-actualización",
+      gpsAccuracy: 0
+    });
+  }, [handleLocationUpdate]);
+
   useEffect(() => {
     const userData = localStorage.getItem("gps_jf_user")
 
@@ -71,8 +92,10 @@ export default function DriverPage() {
 
     if (activeTrip && startTimeRef.current) {
       interval = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - startTimeRef.current!.getTime()) / 1000)
-        setTripDuration(elapsed)
+        if (startTimeRef.current) {
+          const elapsed = Math.floor((Date.now() - startTimeRef.current.getTime()) / 1000)
+          setTripDuration(elapsed)
+        }
       }, 1000)
     }
 
@@ -171,67 +194,84 @@ export default function DriverPage() {
   const handleEndTrip = async () => {
     if (!activeTrip) return
 
+    console.log('[handleEndTrip] Starting trip finalization for trip:', activeTrip.id)
     setLoading(true)
 
-    // if (watchIdRef.current !== null) {
-    //   navigator.geolocation.clearWatch(watchIdRef.current)
-    //   watchIdRef.current = null
-    // }
+    // Helper to finalize trip state
+    const finalizeState = () => {
+      setActiveTrip(null)
+      startTimeRef.current = null
+      setTripDuration(0)
+      setDistance(0)
+      setMaxSpeed(0)
+      setCurrentSpeed(0)
+      speedsRef.current = []
+      lastPositionRef.current = null
+      setCurrentLocation(null)
+      cameraRef.current?.stopCamera()
+    }
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords
-        const avgSpeed =
-          speedsRef.current.length > 0 ? speedsRef.current.reduce((acc: number, curr: number) => acc + curr, 0) / speedsRef.current.length : 0
+    // 1. Try to get current position with short timeout
+    // 2. Fallback to last known position
+    // 3. If neither, use 0,0 (should rarely happen if trip was active)
 
-        try {
-          await endTrip(activeTrip.id, latitude, longitude, distance, maxSpeed, Math.round(avgSpeed))
-          setActiveTrip(null)
-          startTimeRef.current = null
-          setTripDuration(0)
-          setDistance(0)
-          setMaxSpeed(0)
-          setCurrentSpeed(0)
-          speedsRef.current = []
-          lastPositionRef.current = null
-          setCurrentLocation(null)
-          setLoading(false)
-          cameraRef.current?.stopCamera()
-        } catch (err: any) {
-          alert("Error al finalizar viaje")
-          setLoading(false)
-        }
-      },
-      async (error) => {
-        const avgSpeed =
-          speedsRef.current.length > 0 ? speedsRef.current.reduce((acc: number, curr: number) => acc + curr, 0) / speedsRef.current.length : 0
+    let finalLat = 0;
+    let finalLng = 0;
 
-        try {
-          await endTrip(
-            activeTrip.id,
-            lastPositionRef.current?.lat || 0,
-            lastPositionRef.current?.lng || 0,
-            distance,
-            maxSpeed,
-            Math.round(avgSpeed),
-          )
-          setActiveTrip(null)
-          startTimeRef.current = null
-          setTripDuration(0)
-          setDistance(0)
-          setMaxSpeed(0)
-          setCurrentSpeed(0)
-          speedsRef.current = []
-          lastPositionRef.current = null
-          setCurrentLocation(null)
-          setLoading(false)
-          cameraRef.current?.stopCamera()
-        } catch (err: any) {
-          alert("Error al finalizar viaje")
-          setLoading(false)
-        }
-      },
-    )
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 5000, // 5s timeout
+          maximumAge: 10000 // Accept positions up to 10s old
+        });
+      });
+      finalLat = position.coords.latitude;
+      finalLng = position.coords.longitude;
+      console.log('[handleEndTrip] Got fresh position:', { finalLat, finalLng });
+    } catch (error) {
+      console.warn('[handleEndTrip] Could not get fresh position, checking last known:', error);
+      if (lastPositionRef.current) {
+        finalLat = lastPositionRef.current.lat;
+        finalLng = lastPositionRef.current.lng;
+        console.log('[handleEndTrip] Using last known position:', { finalLat, finalLng });
+      } else {
+        console.error('[handleEndTrip] No position available for end trip');
+      }
+    }
+
+    const avgSpeed =
+      speedsRef.current.length > 0 ? speedsRef.current.reduce((acc: number, curr: number) => acc + curr, 0) / speedsRef.current.length : 0
+
+    try {
+      console.log('[handleEndTrip] Calling endTrip with:', {
+        tripId: activeTrip.id,
+        lat: finalLat,
+        lng: finalLng,
+        distance,
+        maxSpeed,
+        avgSpeed: Math.round(avgSpeed)
+      })
+
+      await endTrip(activeTrip.id, finalLat, finalLng, distance, maxSpeed, Math.round(avgSpeed))
+
+      console.log('[handleEndTrip] endTrip completed successfully')
+
+      // Update state BEFORE alert to ensure UI updates and GPSTracker unmounts
+      finalizeState();
+
+      // Small delay to allow state updates to propagate
+      setTimeout(() => {
+        alert("Viaje finalizado correctamente");
+      }, 100);
+
+    } catch (err: any) {
+      console.error("[handleEndTrip] Error al finalizar viaje:", err)
+      alert(`Error al finalizar viaje: ${err.message || 'Error desconocido'}`)
+    } finally {
+      console.log('[handleEndTrip] Finally block - resetting loading state')
+      setLoading(false)
+    }
   }
 
   const handleLogout = () => {
@@ -256,16 +296,6 @@ export default function DriverPage() {
       </div>
     )
   }
-
-  const handleLocationUpdate = (speed: number, dist: number, maxSpd: number, lat: number, lng: number) => {
-    setCurrentSpeed(speed);
-    setDistance(dist);
-    setMaxSpeed(maxSpd);
-    lastPositionRef.current = { lat, lng };
-    setCurrentLocation({ lat, lng });
-    speedsRef.current.push(speed);
-  };
-
 
 
   const handleForceUpdate = () => {
@@ -322,20 +352,12 @@ export default function DriverPage() {
         <div className="max-w-md mx-auto space-y-4">
           {user && activeTrip && (
             <GPSTracker
+              key={activeTrip.id}
               userId={user.id}
               vehicleId={user.vehicle_number!}
               tripId={activeTrip.id}
-
               isTripActive={true}
-              onLocationUpdate={(speed, dist, maxSpd, lat, lng) => {
-                handleLocationUpdate(speed, dist, maxSpd, lat, lng)
-                setDebugInfo({
-                  lastUpdate: new Date().toLocaleTimeString(),
-                  lastCoords: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-                  apiStatus: "Auto-actualización",
-                  gpsAccuracy: 0 // GPSTracker doesn't pass accuracy yet, but that's fine
-                })
-              }}
+              onLocationUpdate={onLocationUpdateWithDebug}
             />
           )}
 

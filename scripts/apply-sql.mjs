@@ -42,7 +42,13 @@ async function applySql() {
         console.log('✅ Conectado a la base de datos');
 
         const sqlFile = process.argv[2] || '006_create_missing_tables.sql';
-        const sqlPath = path.join(__dirname, sqlFile);
+        // If path is absolute or relative to cwd, use it directly, otherwise join with __dirname
+        let sqlPath = sqlFile;
+        if (!path.isAbsolute(sqlFile) && !sqlFile.includes('/')) {
+            sqlPath = path.join(__dirname, sqlFile);
+        } else {
+            sqlPath = path.resolve(process.cwd(), sqlFile);
+        }
 
         if (!fs.existsSync(sqlPath)) {
             console.error(`❌ No se encontró el archivo SQL: ${sqlFile}`);

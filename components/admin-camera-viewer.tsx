@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@/lib/types"
-import { AlertTriangle, Video, VideoOff } from "lucide-react"
+import { AlertTriangle } from "lucide-react"
 
 interface AdminCameraViewerProps {
   adminUser: User
@@ -17,178 +17,181 @@ export function AdminCameraViewer({ adminUser }: AdminCameraViewerProps) {
   const [drivers, setDrivers] = useState<User[]>([])
   const [loadingDrivers, setLoadingDrivers] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [isStreaming, setIsStreaming] = useState(false)
+  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'failed'>('disconnected')
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
   const supabase = createClient()
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
-  const [queuedIceCandidates, setQueuedIceCandidates] = useState<RTCIceCandidateInit[]>([]);
   const [isChannelSubscribed, setIsChannelSubscribed] = useState(false);
+  const [isVideoReceived, setIsVideoReceived] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<string>("");
 
+  // Fetch drivers on mount
   useEffect(() => {
     const fetchDrivers = async () => {
-      console.log("fetchDrivers called.");
       try {
         const { data, error } = await supabase
           .from('users')
-          .select('id, full_name') // Changed from 'id, email, full_name'
+          .select('id, full_name')
           .eq('role', 'driver')
 
-        if (error) {
-          console.error("Error fetching drivers:", error.message || error)
-          setError(`Error al cargar conductores: ${error.message || error}`)
-        } else {
-          setDrivers(data || [])
-          if (data && data.length > 0) {
-            setSelectedDriverId(data[0].id)
-            console.log("Initial selectedDriverId set to:", data[0].id);
-          }
+        if (error) throw error;
+        setDrivers(data || [])
+        if (data && data.length > 0) {
+          setSelectedDriverId(data[0].id)
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error fetching drivers:", err)
-        setError(`Error al cargar conductores: ${err instanceof Error ? err.message : String(err)}`)
+        setError(`Error al cargar conductores: ${err.message}`)
       } finally {
         setLoadingDrivers(false)
       }
     }
-
     fetchDrivers()
   }, [])
 
+  // Manage Channel Subscription for Selected Driver
   useEffect(() => {
-    console.log("Channel subscription useEffect triggered. selectedDriverId:", selectedDriverId, "channelRef.current:", channelRef.current);
-    if (selectedDriverId && !channelRef.current) {
-      console.log("Attempting to subscribe to channel for selectedDriverId:", selectedDriverId);
-      const channel = supabase.channel(`webrtc-signaling-${selectedDriverId}`)
-      channel.subscribe(async (status: any) => {
-        if (status === 'SUBSCRIBED') {
-          console.log(`Subscribed to WebRTC signaling channel for driver ${selectedDriverId} (admin)`);
-          setIsChannelSubscribed(true);
-          console.log("isChannelSubscribed set to true.");
+    if (!selectedDriverId) return;
+
+    // Cleanup previous channel/stream if any
+    stopStream();
+
+    const channelName = `webrtc-signaling-${selectedDriverId}`;
+    console.log(`[AdminViewer] Subscribing to ${channelName}`);
+
+    const channel = supabase.channel(channelName);
+
+    channel
+      .on('broadcast', { event: 'webrtc-offer' }, async (payload: { payload: { targetId: string, senderId: string, sdp: RTCSessionDescriptionInit } }) => {
+        console.log('[AdminViewer] Received offer', payload);
+        if (payload.payload.targetId === adminUser.id || payload.payload.senderId === selectedDriverId) {
+          await handleOffer(payload.payload.sdp, payload.payload.senderId);
         }
       })
-      channelRef.current = channel;
-    }
-
-    return () => {
-      if (channelRef.current) {
-        console.log("Unsubscribing from channel for selectedDriverId:", selectedDriverId);
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-        setIsChannelSubscribed(false);
-        console.log("isChannelSubscribed set to false.");
-      }
-    };
-  }, [selectedDriverId]);
-
-  useEffect(() => {
-    console.log("isChannelSubscribed changed to:", isChannelSubscribed);
-    if (isChannelSubscribed && channelRef.current && selectedDriverId) {
-      const currentChannel = channelRef.current;
-
-      const handleOffer = async (payload: any) => {
-        console.log("handleOffer triggered. Payload senderId:", payload.payload.senderId, "Selected Driver ID:", selectedDriverId);
-        if (payload.payload.senderId === selectedDriverId) {
-          console.log('Received WebRTC offer from driver', payload.payload.sdp);
-
-          // Process any queued ICE candidates
-          queuedIceCandidates.forEach(candidate => {
-            peerConnectionRef.current?.addIceCandidate(new RTCIceCandidate(candidate));
-          });
-          setQueuedIceCandidates([]); // Clear the queue
-
-          if (peerConnectionRef.current) {
-            await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(payload.payload.sdp));
-            const answer = await peerConnectionRef.current.createAnswer();
-            await peerConnectionRef.current.setLocalDescription(answer);
-            console.log('Sending WebRTC answer to driver', answer);
-            currentChannel.send({
-              type: 'broadcast',
-              event: 'webrtc-answer',
-              payload: { sdp: answer?.sdp, senderId: adminUser.id },
-            });
-          }
-        } else {
-          console.warn("Offer received for a different driver. Expected:", selectedDriverId, "Received:", payload.payload.senderId);
-        }
-      };
-
-      const handleCandidate = async (payload: any) => {
-        console.log("handleCandidate triggered. Payload senderId:", payload.payload.senderId, "Selected Driver ID:", selectedDriverId);
-        if (payload.payload.senderId === selectedDriverId && payload.payload.candidate) {
-          console.log('Received ICE candidate from driver', payload.payload.candidate);
-          if (peerConnectionRef.current) {
+      .on('broadcast', { event: 'ice-candidate' }, async (payload: { payload: { targetId: string, senderId: string, candidate: RTCIceCandidateInit } }) => {
+        console.log('[AdminViewer] Received ICE candidate', payload);
+        if ((payload.payload.targetId === adminUser.id || payload.payload.senderId === selectedDriverId) && peerConnectionRef.current) {
+          try {
             await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(payload.payload.candidate));
-          } else {
-            // Queue the candidate if peerConnection is not yet initialized
-            setQueuedIceCandidates(prev => [...prev, payload.payload.candidate]);
+          } catch (e) {
+            console.error('[AdminViewer] Error adding ICE candidate:', e);
           }
-        } else if (payload.payload.senderId !== selectedDriverId) {
-          console.warn("ICE candidate received for a different driver. Expected:", selectedDriverId, "Received:", payload.payload.senderId);
         }
-      };
-
-      currentChannel.on('broadcast', { event: 'webrtc-offer' }, handleOffer);
-      currentChannel.on('broadcast', { event: 'ice-candidate' }, handleCandidate);
-
-      return () => {
-        // Supabase's removeChannel implicitly handles listener cleanup,
-        // so explicit `off` calls for broadcast events are not strictly necessary here
-        // if the channel itself is being removed. However, if the channel
-        // persists but we want to stop listening to these specific events,
-        // explicit `off` calls would be needed. For this scenario,
-        // relying on channel removal is sufficient.
-      };
-    }
-  }, [isChannelSubscribed, channelRef.current, selectedDriverId, adminUser.id, queuedIceCandidates]);
-
-  const startStream = async () => {
-    if (!selectedDriverId) {
-      setError("Por favor, selecciona un conductor para iniciar el stream.")
-      return
-    }
-
-    if (!isChannelSubscribed) {
-      setError("El canal de señalización no está suscrito. Inténtalo de nuevo en unos segundos.")
-      console.warn("Attempted to start stream before channel was subscribed.")
-      return
-    }
-
-    setError(null)
-    setIsStreaming(true)
-
-    if (!peerConnectionRef.current) {
-      peerConnectionRef.current = new RTCPeerConnection({
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-        ],
+      })
+      .on('broadcast', { event: 'camera-status' }, (payload: { payload: { senderId: string, status: string } }) => {
+        console.log('[AdminViewer] Camera status update:', payload);
+        if (payload.payload.senderId === selectedDriverId) {
+          if (payload.payload.status === 'inactive') {
+            stopStream();
+            setError("El conductor ha apagado la cámara.");
+          } else {
+            setError(null); // Camera back online
+          }
+        }
+      })
+      .subscribe((status: string) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`[AdminViewer] Subscribed to ${channelName}`);
+          setIsChannelSubscribed(true);
+        } else {
+          setIsChannelSubscribed(false);
+        }
       });
 
-      peerConnectionRef.current.ontrack = (event) => {
-        if (remoteVideoRef.current && event.streams[0]) {
-          remoteVideoRef.current.srcObject = event.streams[0];
-        }
-      };
+    channelRef.current = channel;
 
-      peerConnectionRef.current.onicecandidate = (event) => {
-        if (event.candidate) {
-          console.log('Sending ICE candidate (admin)', event.candidate);
-          channelRef.current?.send({
-            type: 'broadcast',
-            event: 'ice-candidate',
-            payload: { candidate: event.candidate, senderId: adminUser.id },
-          });
-        }
-      };
+    return () => {
+      console.log(`[AdminViewer] Unsubscribing from ${channelName}`);
+      supabase.removeChannel(channel);
+      channelRef.current = null;
+      setIsChannelSubscribed(false);
+    };
+  }, [selectedDriverId, adminUser.id]);
+
+  const handleOffer = async (sdp: RTCSessionDescriptionInit, senderId: string) => {
+    if (senderId !== selectedDriverId) return;
+
+    // Create PC if not exists (it shouldn't for an offer, usually)
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
     }
 
-    // Process any queued ICE candidates that might have arrived before the peer connection was fully set up
-    queuedIceCandidates.forEach(candidate => {
-      peerConnectionRef.current?.addIceCandidate(new RTCIceCandidate(candidate));
+    const pc = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
     });
-    setQueuedIceCandidates([]); // Clear the queue
-    // The ontrack and onicecandidate handlers are also set up in handleOffer.
+    peerConnectionRef.current = pc;
 
+    pc.ontrack = (event) => {
+      console.log('[AdminViewer] Received remote track', event.streams[0]);
+      setDebugInfo(prev => prev + `\nTrack received: ${event.track.kind}`);
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = event.streams[0];
+        remoteVideoRef.current.play().catch(e => console.error("Error playing video:", e));
+        setIsVideoReceived(true);
+      }
+    };
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        channelRef.current?.send({
+          type: 'broadcast',
+          event: 'ice-candidate',
+          payload: { candidate: event.candidate, senderId: adminUser.id, targetId: selectedDriverId },
+        });
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      console.log('[AdminViewer] Connection state:', pc.connectionState);
+      setDebugInfo(prev => prev + `\nState: ${pc.connectionState}`);
+      if (pc.connectionState === 'failed') setConnectionStatus('failed');
+      if (pc.connectionState === 'connected') setConnectionStatus('connected');
+      if (pc.connectionState === 'disconnected') setConnectionStatus('disconnected');
+    };
+
+    try {
+      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
+      console.log('[AdminViewer] Sending answer...');
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'webrtc-answer',
+        payload: { sdp: answer, senderId: adminUser.id, targetId: selectedDriverId },
+      });
+    } catch (err) {
+      console.error('[AdminViewer] Error handling offer:', err);
+      setConnectionStatus('failed');
+    }
+  };
+
+  const startStream = async () => {
+    if (!selectedDriverId || !isChannelSubscribed) {
+      setError("Esperando conexión con el canal de señalización...");
+      return;
+    }
+
+    setError(null);
+    setConnectionStatus('connecting');
+    setIsVideoReceived(false);
+    setDebugInfo("Iniciando...");
+    console.log('[AdminViewer] Requesting stream...');
+
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'request-stream',
+      payload: { senderId: adminUser.id, targetId: selectedDriverId },
+    });
+
+    // Set a timeout to warn if no response
+    setTimeout(() => {
+      if (connectionStatus === 'connecting') {
+        // setError("No se recibió respuesta del conductor. Verifique que su cámara esté encendida.");
+        // Don't hard fail, just warn
+      }
+    }, 5000);
   }
 
   const stopStream = () => {
@@ -196,18 +199,12 @@ export function AdminCameraViewer({ adminUser }: AdminCameraViewerProps) {
       peerConnectionRef.current.close()
       peerConnectionRef.current = null
     }
-    if (channelRef.current) {
-      console.log("Stopping stream: Unsubscribing from channel for selectedDriverId:", selectedDriverId);
-      supabase.removeChannel(channelRef.current)
-      channelRef.current = null
-      setIsChannelSubscribed(false);
-      console.log("isChannelSubscribed set to false.");
-    }
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null
     }
-    setIsStreaming(false)
-    setError(null)
+    setConnectionStatus('disconnected');
+    setIsVideoReceived(false);
+    setDebugInfo("");
   }
 
   // Cleanup on unmount
@@ -225,12 +222,9 @@ export function AdminCameraViewer({ adminUser }: AdminCameraViewerProps) {
       <CardContent className="space-y-4">
         <div className="flex flex-col md:flex-row items-center gap-4">
           <Select
-            onValueChange={(value) => {
-              console.log("Select onValueChange: Setting selectedDriverId to", value);
-              setSelectedDriverId(value);
-            }}
+            onValueChange={(value) => setSelectedDriverId(value)}
             value={selectedDriverId || ""}
-            disabled={loadingDrivers || isStreaming}
+            disabled={loadingDrivers || connectionStatus === 'connected'}
           >
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="Seleccionar Conductor" />
@@ -249,9 +243,19 @@ export function AdminCameraViewer({ adminUser }: AdminCameraViewerProps) {
               )}
             </SelectContent>
           </Select>
-          <Button onClick={isStreaming ? stopStream : startStream} disabled={!selectedDriverId || loadingDrivers}>
-            {isStreaming ? "Detener Stream" : "Iniciar Stream"}
+
+          <Button
+            onClick={connectionStatus === 'connected' || connectionStatus === 'connecting' ? stopStream : startStream}
+            disabled={!selectedDriverId || !isChannelSubscribed}
+            variant={connectionStatus === 'connected' ? "destructive" : "default"}
+          >
+            {connectionStatus === 'connected' ? "Detener Stream" : connectionStatus === 'connecting' ? "Conectando..." : "Iniciar Stream"}
           </Button>
+
+          <div className="flex items-center gap-2">
+            <span className={`h-3 w-3 rounded-full ${isChannelSubscribed ? 'bg-green-500' : 'bg-red-500'}`} title="Estado de Señalización"></span>
+            <span className="text-xs text-muted-foreground">{isChannelSubscribed ? 'Señalización OK' : 'Sin Señalización'}</span>
+          </div>
         </div>
 
         {error && (
@@ -261,18 +265,37 @@ export function AdminCameraViewer({ adminUser }: AdminCameraViewerProps) {
           </div>
         )}
 
-        {isStreaming && (
-          <div className="aspect-video bg-gray-900 rounded-lg overflow-hidden">
+        {(connectionStatus === 'connected' || connectionStatus === 'connecting') && (
+          <div className="aspect-video bg-gray-900 rounded-lg overflow-hidden relative">
             <video
               ref={remoteVideoRef}
               autoPlay
               playsInline
+              muted
               className="w-full h-full object-cover"
             />
+            {connectionStatus === 'connecting' && (
+              <div className="absolute inset-0 flex items-center justify-center text-white bg-black/50">
+                <p>Esperando video...</p>
+              </div>
+            )}
+            {connectionStatus === 'connected' && !isVideoReceived && (
+              <div className="absolute inset-0 flex items-center justify-center text-white bg-black/50">
+                <div className="text-center">
+                  <p className="font-bold">Conectado, esperando video...</p>
+                  <p className="text-xs text-gray-300 mt-2">Si esto persiste, el conductor podría tener problemas de red.</p>
+                </div>
+              </div>
+            )}
+
+            {/* Debug Overlay */}
+            <div className="absolute bottom-2 left-2 bg-black/70 text-white text-[10px] p-1 rounded font-mono whitespace-pre pointer-events-none opacity-50 hover:opacity-100">
+              {debugInfo}
+            </div>
           </div>
         )}
 
-        {!isStreaming && !error && (
+        {connectionStatus === 'disconnected' && !error && (
           <p className="text-sm text-muted-foreground">
             Selecciona un conductor y haz clic en "Iniciar Stream" para ver su cámara.
           </p>

@@ -1,0 +1,35 @@
+[
+  {
+    "vehicle": "dae345",
+    "driver": "Armando ovalle",
+    "phone": "3052891711",
+    "started": "2025-11-22T23:28:30.779Z",
+    "lastUpdate": "2025-11-22T23:32:18.338Z",
+    "hoursActive": "24.5",
+    "minutesSinceUpdate": "1466",
+    "speed": 0,
+    "status": "OFFLINE/STALE"
+  },
+  {
+    "vehicle": "295",
+    "driver": "Carlos Naveda",
+    "phone": "04146793096",
+    "started": "2025-11-21T22:24:21.311Z",
+    "lastUpdate": "2025-11-21T22:26:26.589Z",
+    "hoursActive": "49.6",
+    "minutesSinceUpdate": "2972",
+    "speed": 0,
+    "status": "OFFLINE/STALE"
+  },
+  {
+    "vehicle": "daa543",
+    "driver": "Demomcbo",
+    "phone": "444444",
+    "started": "2025-11-22T03:29:23.874Z",
+    "lastUpdate": "2025-11-22T03:29:39.079Z",
+    "hoursActive": "44.5",
+    "minutesSinceUpdate": "2669",
+    "speed": 0,
+    "status": "OFFLINE/STALE"
+  }
+]

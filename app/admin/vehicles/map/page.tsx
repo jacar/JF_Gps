@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client"
 import type { User } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, Truck, MapPin, Navigation, Clock, Calendar, Menu, Route, List, X } from "lucide-react"
+import { Search, Truck, MapPin, Navigation, Clock, Calendar, Menu, Route, List, X, Zap } from "lucide-react"
 
 interface VehicleLocation {
     id: string
@@ -17,7 +17,7 @@ interface VehicleLocation {
     latitude: number
     longitude: number
     speed: number
-    status: "moving" | "stopped" | "idle"
+    status: "moving" | "stopped" | "idle" | "offline"
     last_update: string
     // Vehicle details
     brand?: string
@@ -171,6 +171,15 @@ export default function VehiclesMapPage() {
                     // Fallback to speed if motion sensor not available
                     status = "moving"
                 }
+
+                // Check for offline status (no update > 20 mins)
+                const lastUpdateDate = new Date(lastUpdate)
+                const now = new Date()
+                const minutesSinceUpdate = (now.getTime() - lastUpdateDate.getTime()) / (1000 * 60)
+
+                if (minutesSinceUpdate > 20) {
+                    status = "offline"
+                }
                 // else stopped
 
                 return {
@@ -226,6 +235,7 @@ export default function VehiclesMapPage() {
         total: vehicles.length,
         moving: vehicles.filter((v) => v.status === "moving").length,
         stopped: vehicles.filter((v) => v.status === "stopped").length,
+        offline: vehicles.filter((v) => v.status === "offline").length,
         idle: vehicles.filter((v) => v.status === "idle").length,
     }
 
@@ -336,6 +346,15 @@ export default function VehiclesMapPage() {
                                 <MapPin className="h-6 w-6 text-red-600" />
                             </div>
                         </div>
+                        <div className="bg-gray-50 rounded-lg p-3">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-xs text-gray-600 font-medium">Sin Señal</p>
+                                    <p className="text-xl font-bold text-gray-900 mt-1">{stats.offline}</p>
+                                </div>
+                                <Zap className="h-6 w-6 text-gray-600" />
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -382,9 +401,9 @@ export default function VehiclesMapPage() {
                                 >
                                     <div className="relative flex items-center justify-center cursor-pointer">
                                         <img
-                                            src={vehicle.status === "moving" ? "/carro_g_n.png" : "/carro_r_s.png"}
+                                            src={vehicle.status === "moving" ? "/carro_g_n.png" : (vehicle.status === "offline" ? "/carro_r_s.png" : "/carro_r_s.png")}
                                             alt="Vehicle"
-                                            className={`w-12 h-12 object-contain ${selectedVehicle?.id === vehicle.id ? "drop-shadow-[0_0_8px_rgba(59,130,246,0.8)]" : ""}`}
+                                            className={`w-12 h-12 object-contain ${selectedVehicle?.id === vehicle.id ? "drop-shadow-[0_0_8px_rgba(59,130,246,0.8)]" : ""} ${vehicle.status === "offline" ? "opacity-50 grayscale" : ""}`}
                                         />
                                     </div>
                                 </Marker>
@@ -426,7 +445,7 @@ export default function VehiclesMapPage() {
                                                         : "bg-red-100 text-red-800"
                                                         }`}
                                                 >
-                                                    {selectedVehicle.status === "moving" ? "En ruta" : "Detenido"}
+                                                    {selectedVehicle.status === "moving" ? "En ruta" : (selectedVehicle.status === "offline" ? "Sin señal" : "Detenido")}
                                                 </span>
                                             </div>
                                             {(selectedVehicle.brand || selectedVehicle.model) && (
@@ -489,6 +508,33 @@ export default function VehiclesMapPage() {
                                         >
                                             Ver Historial Completo
                                         </Button>
+
+                                        {/* End Trip Button for Offline/Stopped */}
+                                        {(selectedVehicle.status === "offline" || selectedVehicle.status === "stopped") && (
+                                            <Button
+                                                size="sm"
+                                                variant="destructive"
+                                                className="w-full mt-2"
+                                                onClick={async (e) => {
+                                                    e.stopPropagation()
+                                                    if (confirm("¿Finalizar este viaje manualmente?")) {
+                                                        try {
+                                                            const { endTrip } = await import("@/app/actions")
+                                                            // We use 0 values as we don't have better data, or could use vehicle last known
+                                                            await endTrip(selectedVehicle.id, selectedVehicle.latitude, selectedVehicle.longitude, 0, 0, 0)
+                                                            alert("Viaje finalizado.")
+                                                            setSelectedVehicle(null)
+                                                            loadVehicles()
+                                                        } catch (err) {
+                                                            console.error(err)
+                                                            alert("Error al finalizar viaje.")
+                                                        }
+                                                    }
+                                                }}
+                                            >
+                                                Finalizar Viaje
+                                            </Button>
+                                        )}
 
                                         {/* Arrow */}
                                         <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">

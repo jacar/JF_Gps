@@ -138,6 +138,29 @@ export default function TripsPage() {
                             <Download className="h-4 w-4 mr-2" />
                             Exportar
                         </Button>
+                        <Button
+                            variant="destructive"
+                            className="ml-2"
+                            onClick={async () => {
+                                if (confirm("¿Estás seguro de que deseas cerrar todos los viajes inactivos (más de 12 horas sin actividad)?")) {
+                                    setLoading(true)
+                                    try {
+                                        const { closeStaleTrips } = await import("@/app/actions")
+                                        const count = await closeStaleTrips()
+                                        alert(`Se han cerrado ${count} viajes inactivos.`)
+                                        loadTrips()
+                                    } catch (error) {
+                                        console.error("Error closing stale trips:", error)
+                                        alert("Error al cerrar viajes inactivos.")
+                                    } finally {
+                                        setLoading(false)
+                                    }
+                                }
+                            }}
+                        >
+                            <Filter className="h-4 w-4 mr-2" />
+                            Limpiar Antiguos
+                        </Button>
                     </div>
 
                     {/* Stats */}
@@ -197,21 +220,21 @@ export default function TripsPage() {
                         <div className="hidden md:flex gap-2">
                             <Button
                                 variant={filterStatus === "all" ? "default" : "outline"}
-                                onClick={() => {setFilterStatus("all"); setShowTripPopup(true)}}
+                                onClick={() => { setFilterStatus("all"); setShowTripPopup(true) }}
                                 size="sm"
                             >
                                 Todos
                             </Button>
                             <Button
                                 variant={filterStatus === "active" ? "default" : "outline"}
-                                onClick={() => {setFilterStatus("active"); setShowTripPopup(true)}}
+                                onClick={() => { setFilterStatus("active"); setShowTripPopup(true) }}
                                 size="sm"
                             >
                                 Activos
                             </Button>
                             <Button
                                 variant={filterStatus === "completed" ? "default" : "outline"}
-                                onClick={() => {setFilterStatus("completed"); setShowTripPopup(true)}}
+                                onClick={() => { setFilterStatus("completed"); setShowTripPopup(true) }}
                                 size="sm"
                             >
                                 Completados
@@ -311,21 +334,21 @@ export default function TripsPage() {
                     <div className="flex justify-around gap-2">
                         <Button
                             variant={filterStatus === "all" ? "default" : "outline"}
-                            onClick={() => {setFilterStatus("all"); setShowTripPopup(true)}}
+                            onClick={() => { setFilterStatus("all"); setShowTripPopup(true) }}
                             className="flex-1"
                         >
                             Todos
                         </Button>
                         <Button
                             variant={filterStatus === "active" ? "default" : "outline"}
-                            onClick={() => {setFilterStatus("active"); setShowTripPopup(true)}}
+                            onClick={() => { setFilterStatus("active"); setShowTripPopup(true) }}
                             className="flex-1"
                         >
                             Activos
                         </Button>
                         <Button
                             variant={filterStatus === "completed" ? "default" : "outline"}
-                            onClick={() => {setFilterStatus("completed"); setShowTripPopup(true)}}
+                            onClick={() => { setFilterStatus("completed"); setShowTripPopup(true) }}
                             className="flex-1"
                         >
                             Completados

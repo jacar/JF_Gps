@@ -7,7 +7,10 @@ import type { User } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Settings, Save, Bell, MapPin, Shield, Database } from "lucide-react"
+import { Settings, Save, Bell, MapPin, Shield, Database, Mail } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
+import { toast } from "sonner"
+import { sendTestAlarmEmail } from "@/app/actions"
 
 export default function SettingsPage() {
     const [user, setUser] = useState<User | null>(null)
@@ -17,9 +20,9 @@ export default function SettingsPage() {
 
     const [settings, setSettings] = useState({
         // General
-        company_name: "GPS JF Corp",
-        company_email: "admin@gpsjf.com",
-        company_phone: "+51 999 999 999",
+        company_name: "",
+        company_email: "",
+        company_phone: "",
 
         // Notifications
         email_notifications: true,
@@ -38,7 +41,16 @@ export default function SettingsPage() {
         // Database
         backup_frequency: "daily",
         retention_days: 90,
+
+        // SMTP
+        smtp_host: "",
+        smtp_port: 587,
+        smtp_user: "",
+        smtp_pass: "",
+        smtp_secure: false,
     })
+    const [sendingTest, setSendingTest] = useState(false)
+    const supabase = createClient()
 
     useEffect(() => {
         const userData = localStorage.getItem("gps_jf_user")
@@ -56,8 +68,32 @@ export default function SettingsPage() {
         }
 
         setUser(parsedUser)
-        setLoading(false)
+        loadSettings()
     }, [router])
+
+    const loadSettings = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('settings')
+                .select('*')
+                .single()
+
+            if (error) {
+                if (error.code !== 'PGRST116') { // Not found error
+                    console.error("Error loading settings:", error)
+                }
+                return
+            }
+
+            if (data) {
+                setSettings(data)
+            }
+        } catch (error) {
+            console.error("Error:", error)
+        } finally {
+            setLoading(false)
+        }
+    }
 
     const handleLogout = () => {
         localStorage.removeItem("gps_jf_user")
@@ -66,11 +102,33 @@ export default function SettingsPage() {
 
     const handleSave = async () => {
         setSaving(true)
-        // Simulate API call
-        setTimeout(() => {
+        try {
+            // Check if settings exist
+            const { data: existing } = await supabase.from('settings').select('id').single()
+
+            let error;
+            if (existing) {
+                const { error: updateError } = await supabase
+                    .from('settings')
+                    .update(settings)
+                    .eq('id', existing.id)
+                error = updateError
+            } else {
+                const { error: insertError } = await supabase
+                    .from('settings')
+                    .insert([settings])
+                error = insertError
+            }
+
+            if (error) throw error
+
+            toast.success("Configuración guardada exitosamente")
+        } catch (error) {
+            console.error("Error saving settings:", error)
+            toast.error("Error al guardar la configuración")
+        } finally {
             setSaving(false)
-            alert("Configuración guardada exitosamente")
-        }, 1000)
+        }
     }
 
     if (loading) {
@@ -340,6 +398,102 @@ export default function SettingsPage() {
                                         max="365"
                                     />
                                     <p className="text-xs text-gray-500 mt-1">Tiempo que se mantienen los datos históricos</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* SMTP Settings */}
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                                    <Mail className="h-5 w-5 text-indigo-600" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-semibold text-gray-900">Configuración SMTP</h2>
+                                    <p className="text-sm text-gray-500">Servidor de correo para alertas</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="col-span-2 md:col-span-1">
+                                        <Label htmlFor="smtp_host">Servidor SMTP (Host)</Label>
+                                        <Input
+                                            id="smtp_host"
+                                            value={settings.smtp_host || ""}
+                                            onChange={(e) => setSettings({ ...settings, smtp_host: e.target.value })}
+                                            placeholder="smtp.example.com"
+                                        />
+                                    </div>
+                                    <div className="col-span-2 md:col-span-1">
+                                        <Label htmlFor="smtp_port">Puerto</Label>
+                                        <Input
+                                            id="smtp_port"
+                                            type="number"
+                                            value={settings.smtp_port || 587}
+                                            onChange={(e) => setSettings({ ...settings, smtp_port: parseInt(e.target.value) })}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="col-span-2 md:col-span-1">
+                                        <Label htmlFor="smtp_user">Usuario</Label>
+                                        <Input
+                                            id="smtp_user"
+                                            value={settings.smtp_user || ""}
+                                            onChange={(e) => setSettings({ ...settings, smtp_user: e.target.value })}
+                                            placeholder="user@example.com"
+                                        />
+                                    </div>
+                                    <div className="col-span-2 md:col-span-1">
+                                        <Label htmlFor="smtp_pass">Contraseña</Label>
+                                        <Input
+                                            id="smtp_pass"
+                                            type="password"
+                                            value={settings.smtp_pass || ""}
+                                            onChange={(e) => setSettings({ ...settings, smtp_pass: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <Label>Conexión Segura (SSL/TLS)</Label>
+                                        <p className="text-sm text-gray-500">Usar conexión segura para el envío</p>
+                                    </div>
+                                    <input
+                                        type="checkbox"
+                                        checked={settings.smtp_secure || false}
+                                        onChange={(e) => setSettings({ ...settings, smtp_secure: e.target.checked })}
+                                        className="w-5 h-5"
+                                    />
+                                </div>
+
+                                <div className="pt-4 border-t border-gray-100">
+                                    <Button
+                                        variant="outline"
+                                        onClick={async () => {
+                                            setSendingTest(true)
+                                            try {
+                                                // Save settings first to ensure backend has latest
+                                                await handleSave()
+
+                                                const result = await sendTestAlarmEmail(settings.company_email)
+                                                if (result.success) {
+                                                    toast.success("Correo de prueba enviado")
+                                                } else {
+                                                    toast.error("Error al enviar correo: " + result.message)
+                                                }
+                                            } catch (error) {
+                                                console.error(error)
+                                                toast.error("Error inesperado")
+                                            } finally {
+                                                setSendingTest(false)
+                                            }
+                                        }}
+                                        disabled={sendingTest || saving}
+                                    >
+                                        {sendingTest ? "Enviando..." : "Enviar Correo de Prueba"}
+                                    </Button>
                                 </div>
                             </div>
                         </div>

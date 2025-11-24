@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { AdminSidebar } from "@/components/admin-sidebar"
+import { createClient } from "@/lib/supabase/client"
 import type { User } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,6 +28,7 @@ export default function ReportsPage() {
     const [reports, setReports] = useState<Report[]>([])
     const [searchTerm, setSearchTerm] = useState("")
     const router = useRouter()
+    const supabase = createClient()
 
     useEffect(() => {
         const userData = localStorage.getItem("gps_jf_user")
@@ -47,42 +49,93 @@ export default function ReportsPage() {
         loadReports()
     }, [router])
 
-    const loadReports = () => {
-        // Mock data
-        const mockReports: Report[] = [
-            {
-                id: "1",
+    const loadReports = async () => {
+        try {
+            // Fetch real data from trips to generate reports
+            // For now, we'll generate a "Daily Report" and "Weekly Report" based on actual trip data
+            const { data: trips, error } = await supabase
+                .from("trips")
+                .select("id, start_time, end_time, status")
+                .order("start_time", { ascending: false })
+
+            if (error) throw error
+
+            // Group by day for daily reports
+            const dailyGroups: Record<string, any[]> = {}
+            trips?.forEach((trip: any) => {
+                const date = new Date(trip.start_time).toLocaleDateString('en-CA') // YYYY-MM-DD
+                if (!dailyGroups[date]) dailyGroups[date] = []
+                dailyGroups[date].push(trip)
+            })
+
+            const generatedReports: Report[] = Object.keys(dailyGroups).slice(0, 10).map((date, index) => ({
+                id: `daily-${date}`,
                 report_type: "daily",
-                title: "Reporte Diario - 20/11/2025",
-                description: "Resumen de actividades del día",
-                start_date: new Date().toISOString(),
-                end_date: new Date().toISOString(),
-                generated_by: "Admin",
+                title: `Reporte Diario - ${format(new Date(date), "dd/MM/yyyy", { locale: es })}`,
+                description: `Resumen de ${dailyGroups[date].length} viajes`,
+                start_date: new Date(date).toISOString(),
+                end_date: new Date(new Date(date).setHours(23, 59, 59)).toISOString(),
+                generated_by: "Sistema",
                 created_at: new Date().toISOString(),
-            },
-            {
-                id: "2",
-                report_type: "weekly",
-                title: "Reporte Semanal - Semana 47",
-                description: "Análisis semanal de la flota",
-                start_date: new Date(Date.now() - 604800000).toISOString(),
-                end_date: new Date().toISOString(),
-                generated_by: "Admin",
-                created_at: new Date(Date.now() - 86400000).toISOString(),
-            },
-            {
-                id: "3",
-                report_type: "monthly",
-                title: "Reporte Mensual - Noviembre 2025",
-                description: "Estadísticas mensuales completas",
-                start_date: new Date(2025, 10, 1).toISOString(),
-                end_date: new Date(2025, 10, 30).toISOString(),
-                generated_by: "Admin",
-                created_at: new Date(Date.now() - 172800000).toISOString(),
-            },
-        ]
-        setReports(mockReports)
-        setLoading(false)
+            }))
+
+            setReports(generatedReports)
+        } catch (error) {
+            console.error("Error loading reports:", error)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const downloadReport = async (report: Report) => {
+        try {
+            // Fetch details for the report
+            const { data: trips, error } = await supabase
+                .from("trips")
+                .select(`
+                    *,
+                    driver:users(full_name, phone_number)
+                `)
+                .gte("start_time", report.start_date)
+                .lte("start_time", report.end_date)
+
+            if (error) throw error
+
+            if (!trips || trips.length === 0) {
+                alert("No hay datos para este reporte")
+                return
+            }
+
+            // Generate CSV
+            const headers = ["ID Viaje", "Conductor", "Vehículo", "Inicio", "Fin", "Distancia (km)", "Estado"]
+            const rows = trips.map((trip: any) => [
+                trip.id,
+                trip.driver?.full_name || "Desconocido",
+                trip.vehicle_number,
+                new Date(trip.start_time).toLocaleString("es-ES"),
+                trip.end_time ? new Date(trip.end_time).toLocaleString("es-ES") : "En curso",
+                trip.total_distance_km?.toFixed(2) || "0",
+                trip.status
+            ])
+
+            const csvContent = [
+                headers.join(","),
+                ...rows.map((row: string[]) => row.map((cell: string) => `"${cell}"`).join(","))
+            ].join("\n")
+
+            const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+            const url = URL.createObjectURL(blob)
+            const link = document.createElement("a")
+            link.setAttribute("href", url)
+            link.setAttribute("download", `${report.title.replace(/ /g, "_")}.csv`)
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+
+        } catch (error) {
+            console.error("Error downloading report:", error)
+            alert("Error al descargar el reporte")
+        }
     }
 
     const handleLogout = () => {
@@ -210,10 +263,10 @@ export default function ReportsPage() {
                                             <span className="text-gray-500">Tipo:</span>
                                             <span
                                                 className={`px-2 py-1 text-xs font-semibold rounded-full ${report.report_type === "daily"
-                                                        ? "bg-green-100 text-green-800"
-                                                        : report.report_type === "weekly"
-                                                            ? "bg-purple-100 text-purple-800"
-                                                            : "bg-orange-100 text-orange-800"
+                                                    ? "bg-green-100 text-green-800"
+                                                    : report.report_type === "weekly"
+                                                        ? "bg-purple-100 text-purple-800"
+                                                        : "bg-orange-100 text-orange-800"
                                                     }`}
                                             >
                                                 {report.report_type === "daily"
@@ -243,9 +296,14 @@ export default function ReportsPage() {
                                     </div>
 
                                     <div className="pt-4 border-t border-gray-200">
-                                        <Button variant="outline" size="sm" className="w-full">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-full"
+                                            onClick={() => downloadReport(report)}
+                                        >
                                             <Download className="h-4 w-4 mr-2" />
-                                            Descargar PDF
+                                            Descargar CSV
                                         </Button>
                                     </div>
                                 </div>

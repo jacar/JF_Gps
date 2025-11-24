@@ -2,7 +2,7 @@
 
 import { Map, Marker, Overlay } from "pigeon-maps"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Timer, Gauge, Route, UserIcon, Phone, MapPin, Car, Truck, Clock, Navigation, X } from "lucide-react"
@@ -29,7 +29,7 @@ export default function MapWrapper({ activeTrips, tripLocations, selectedTripId,
   const [vehiclesData, setVehiclesData] = useState<Record<string, any>>({})
 
   useEffect(() => {
-    console.log('🔄 useEffect para fetchVehicleDetails ejecutándose.');
+    // Removed debug log
     const fetchVehicleDetails = async () => {
       const supabase = (await import("@/lib/supabase/client")).createClient()
 
@@ -55,16 +55,11 @@ export default function MapWrapper({ activeTrips, tripLocations, selectedTripId,
     } else {
       console.log('  ℹ️ No hay activeTrips para fetchVehicleDetails.');
     }
-  }, [activeTrips, tripLocations])
-
-  // Debug: Monitor selectedVehicle changes
-  useEffect(() => {
-    console.log('🎯 selectedVehicle cambió:', selectedVehicle)
-  }, [selectedVehicle])
+  }, [activeTrips])
 
   // Initialize selectedVehicle automatically when activeTrips or vehiclesData changes
   useEffect(() => {
-    console.log('🔄 useEffect para inicializar selectedVehicle ejecutándose.');
+    // Removed init debug log
     if (activeTrips.length > 0 && Object.keys(vehiclesData).length > 0 && !selectedVehicle) {
       const firstTrip = activeTrips[0];
       const latestLocation = tripLocations[firstTrip.id]?.[tripLocations[firstTrip.id].length - 1];
@@ -88,7 +83,7 @@ export default function MapWrapper({ activeTrips, tripLocations, selectedTripId,
         console.log('  ❌ vehicleInfo no disponible para el primer viaje al intentar inicializar automáticamente.', firstTrip.vehicle_number);
       }
     }
-  }, [activeTrips, vehiclesData, selectedVehicle, tripLocations]);
+  }, [activeTrips, vehiclesData, tripLocations]);
 
 
 
