@@ -46,13 +46,13 @@ export function AdminMap({ selectedTripId, onTripSelect }: AdminMapProps) {
           [newLocation.trip_id]: [...(prev[newLocation.trip_id] || []), newLocation],
         }))
       })
-      .subscribe((status: string, err?: Error) => {
+      .subscribe((status: string) => {
         if (status === "SUBSCRIBED") {
           console.log(`Supabase channel ${channelId} subscribed successfully!`);
         } else if (status === "CHANNEL_ERROR") {
-          console.error(`Supabase channel ${channelId} error:`, err);
+          console.error(`Supabase channel ${channelId} error`);
         } else if (status === "TIMED_OUT") {
-          console.error(`Supabase channel ${channelId} timed out:`, err);
+          console.error(`Supabase channel ${channelId} timed out`);
         }
       })
 
