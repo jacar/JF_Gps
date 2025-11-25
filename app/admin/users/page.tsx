@@ -6,7 +6,7 @@ import { AdminSidebar } from "@/components/admin-sidebar"
 import type { User } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, Users as UsersIcon, Plus, Edit, Shield, UserCircle } from "lucide-react"
+import { Search, Users as UsersIcon, Plus, Edit, Shield, UserCircle, Menu } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
 export default function UsersPage() {
@@ -85,15 +85,25 @@ export default function UsersPage() {
 
     return (
         <div className="flex h-screen overflow-hidden bg-gray-50">
-            <AdminSidebar onLogout={handleLogout} userName={user?.full_name} isCollapsed={isSidebarCollapsed} onToggleCollapse={toggleSidebar} />
+            <AdminSidebar onLogout={handleLogout} userName={user?.full_name} isCollapsed={isSidebarCollapsed} onToggleCollapse={toggleSidebar} onClose={() => setIsSidebarCollapsed(true)} />
 
-            <div className={`flex-1 ${isSidebarCollapsed ? "ml-16" : "ml-64"} flex flex-col overflow-hidden`}>
+            <div className={`w-full flex flex-col overflow-hidden ml-0 ${isSidebarCollapsed ? "md:ml-16" : "md:ml-64"}`}>
                 {/* Header */}
                 <div className="bg-white border-b border-gray-200 px-8 py-6">
                     <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-900">Usuarios</h1>
-                            <p className="text-sm text-gray-500 mt-1">Gestiona usuarios y permisos</p>
+                        <div className="flex items-center">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 mr-2 md:hidden"
+                                onClick={() => setIsSidebarCollapsed(false)}
+                            >
+                                <Menu className="h-4 w-4" />
+                            </Button>
+                            <div>
+                                <h1 className="text-2xl font-bold text-gray-900">Usuarios</h1>
+                                <p className="text-sm text-gray-500 mt-1">Gestiona usuarios y permisos</p>
+                            </div>
                         </div>
                         <Button className="bg-[#1e3a5f] hover:bg-[#2d5a8f]" onClick={() => router.push("/admin/users/create")}>
                             <Plus className="h-4 w-4 mr-2" />

@@ -379,3 +379,57 @@ export async function sendTestAlarmEmail(recipientEmail: string) {
     return { success: false, message: error.message || 'Error inesperado' }
   }
 }
+
+/**
+ * Creates a speed alarm when driver exceeds speed limit
+ */
+export async function createSpeedAlarm(
+  driverId: string,
+  vehicleNumber: string,
+  currentSpeed: number,
+  speedLimit: number,
+  roadType: string,
+  roadName: string,
+  latitude: number,
+  longitude: number
+) {
+  try {
+    const supabase = await createClient()
+
+    // Determinar severidad según cuánto excede el límite
+    const excess = currentSpeed - speedLimit
+    let severity: 'low' | 'medium' | 'high' | 'critical'
+
+    if (excess >= 30) severity = 'critical'
+    else if (excess >= 20) severity = 'high'
+    else if (excess >= 10) severity = 'medium'
+    else severity = 'low'
+
+    const message = `Exceso de velocidad: ${Math.round(currentSpeed)} km/h en ${roadName} (${roadType}, límite: ${speedLimit} km/h)`
+
+    const { data, error } = await supabase
+      .from('alarms')
+      .insert({
+        device_imei: vehicleNumber,
+        alarm_type: 'speed',
+        severity,
+        message,
+        latitude,
+        longitude,
+        acknowledged: false
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error creating speed alarm:', error)
+      throw error
+    }
+
+    console.log(`⚠️ Speed alarm created: ${message}`)
+    return data
+  } catch (error) {
+    console.error('Exception in createSpeedAlarm:', error)
+    throw error
+  }
+}

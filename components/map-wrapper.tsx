@@ -1,8 +1,34 @@
 "use client"
 
 import { Map, Marker, Overlay } from "pigeon-maps"
-
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
+
+// Custom Polyline component since it's not exported by pigeon-maps
+const Polyline = ({ latLngToPixel, points, color = 'red', width = 3, ...props }: any) => {
+  if (!points || points.length < 2) return null
+
+  const pixelPoints = points.map((p: any) => {
+    const [x, y] = latLngToPixel(p)
+    return `${x},${y}`
+  }).join(' ')
+
+  return (
+    <svg
+      width={props.width}
+      height={props.height}
+      style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}
+    >
+      <polyline
+        points={pixelPoints}
+        fill="none"
+        stroke={color}
+        strokeWidth={width}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Timer, Gauge, Route, UserIcon, Phone, MapPin, Car, Truck, Clock, Navigation, X } from "lucide-react"
@@ -27,6 +53,28 @@ export default function MapWrapper({ activeTrips, tripLocations, selectedTripId,
   const [trackingLocation, setTrackingLocation] = useState(false)
   const [selectedVehicle, setSelectedVehicle] = useState<any | null>(null)
   const [vehiclesData, setVehiclesData] = useState<Record<string, any>>({})
+  const [isDarkMode, setIsDarkMode] = useState(false)
+
+  // Colores para las rutas de diferentes conductores
+  const routeColors = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#6366F1']
+
+  useEffect(() => {
+    const checkTime = () => {
+      const hour = new Date().getHours()
+      // Night mode from 6 PM (18) to 6 AM (6)
+      setIsDarkMode(hour >= 18 || hour < 6)
+    }
+
+    checkTime()
+    const interval = setInterval(checkTime, 60000) // Check every minute
+    return () => clearInterval(interval)
+  }, [])
+
+  const mapProvider = (x: number, y: number, z: number, dpr?: number) => {
+    return isDarkMode
+      ? `https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/${z}/${x}/${y}${dpr && dpr >= 2 ? '@2x' : ''}.png`
+      : `https://tile.openstreetmap.org/${z}/${x}/${y}.png`
+  }
 
   useEffect(() => {
     // Removed debug log
@@ -126,7 +174,7 @@ export default function MapWrapper({ activeTrips, tripLocations, selectedTripId,
         } else if (code === 3) {
           console.warn("Geolocation timeout:", msg)
         } else {
-          console.error("Error getting location:", { code, message: msg, errorObject: err })
+          console.error("Error getting location:", { code, message: msg, errorObject: err, name: err?.name, stack: err?.stack })
         }
         setTrackingLocation(false)
       },
@@ -243,12 +291,13 @@ export default function MapWrapper({ activeTrips, tripLocations, selectedTripId,
             setMapCenter([myLocation.lat, myLocation.lng])
             setMapZoom(15)
           }}
-          className="absolute top-4 right-4 z-50 bg-red-600 hover:bg-red-700 text-white shadow-lg"
+          className="absolute bottom-4 md:top-4 right-4 z-50 bg-red-600 hover:bg-red-700 text-white shadow-lg text-xs md:text-sm"
           size="sm"
           title="Centrar en mi ubicación"
         >
-          <MapPin className="h-4 w-4 mr-2" />
-          Mi Ubicación
+          <MapPin className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+          <span className="hidden sm:inline">Mi Ubicación</span>
+          <span className="sm:hidden">Mi Ubic.</span>
         </Button>
       )}
 
@@ -274,16 +323,18 @@ export default function MapWrapper({ activeTrips, tripLocations, selectedTripId,
               setMapZoom(validLocations.length === 1 ? 13 : 6) // Zoom out if multiple vehicles
             }
           }}
-          className="absolute top-4 right-40 z-50 bg-green-600 hover:bg-green-700 text-white shadow-lg"
+          className="absolute bottom-4 md:top-4 right-4 mr-20 sm:mr-28 md:mr-0 md:right-40 z-50 bg-green-600 hover:bg-green-700 text-white shadow-lg text-xs md:text-sm"
           size="sm"
           title="Ver todos los vehículos"
         >
-          <Car className="h-4 w-4 mr-2" />
-          Ver Todos ({activeTrips.length})
+          <Car className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+          <span className="hidden sm:inline">Ver Todos ({activeTrips.length})</span>
+          <span className="sm:hidden">Todos ({activeTrips.length})</span>
         </Button>
       )}
 
       <Map
+        provider={mapProvider}
         height={containerHeight}
         center={mapCenter}
         zoom={mapZoom}
@@ -293,6 +344,23 @@ export default function MapWrapper({ activeTrips, tripLocations, selectedTripId,
           onTripSelect(null)
         }}
       >
+        {/* Rutas de todos los viajes activos */}
+        {activeTrips.map((trip, index) => {
+          const locations = tripLocations[trip.id]
+          if (!locations || locations.length < 2) return null
+
+          const isSelected = selectedTripId === trip.id
+
+          return (
+            <Polyline
+              key={`route-${trip.id}`}
+              points={locations.map(l => [l.latitude, l.longitude])}
+              color="#FF0000"
+              width={isSelected ? 5 : 3}
+            />
+          )
+        })}
+
         {activeTrips.map((trip) => {
           const latestLocation = tripLocations[trip.id]?.[tripLocations[trip.id].length - 1]
           const location = latestLocation || {
@@ -307,7 +375,7 @@ export default function MapWrapper({ activeTrips, tripLocations, selectedTripId,
           return (
             <Marker
               key={trip.id}
-              width={60}
+              width={20}
               anchor={[location.latitude, location.longitude]}
               onClick={({ event }) => {
                 console.log('Evento de clic en Marker disparado');
@@ -325,10 +393,21 @@ export default function MapWrapper({ activeTrips, tripLocations, selectedTripId,
                 onTripSelect(trip.id)
               }}>
               <div className="relative flex items-center justify-center cursor-pointer">
+                {/* Pulsing background circle for moving vehicles */}
+                {(location.speed_kmh || 0) >= 1 && (
+                  <div className="absolute w-8 h-8 rounded-full bg-green-500/40 animate-pulse" />
+                )}
+                {/* Static background circle for stopped vehicles */}
+                {(location.speed_kmh || 0) < 1 && (
+                  <div className="absolute w-8 h-8 rounded-full bg-red-500/20" />
+                )}
+
                 <img
                   src={(location.speed_kmh || 0) >= 1 ? "/carro_g_n.png" : "/carro_r_s.png"}
                   alt="Vehicle"
-                  className={`w-12 h-12 object-contain ${selectedVehicle?.id === trip.id ? "drop-shadow-[0_0_8px_rgba(59,130,246,0.8)]" : ""}`}
+                  className={`w-5 h-5 object-contain relative z-10
+                    ${selectedVehicle?.id === trip.id ? "scale-125 transition-transform" : ""}
+                  `}
                 />
               </div>
             </Marker>

@@ -188,18 +188,28 @@ export function AdminSidebar({ onLogout, userName, onClose, isCollapsed: control
 
     return (
         <aside
-            className={`bg-red-900 text-white flex flex-col h-screen fixed left-0 top-0 z-50 transition-all duration-200 ease-in-out ${isCollapsed ? "w-16" : "w-64"}`}
+            className={cn(
+                "bg-red-900 text-white flex flex-col h-screen transition-all duration-300 ease-in-out",
+                // Mobile styles (default)
+                "fixed top-0 left-0 z-50",
+                isCollapsed ? "-translate-x-full" : "translate-x-0",
+                // Mobile width when open
+                "w-64",
+                // Desktop styles (md and up)
+                "md:relative md:translate-x-0",
+                isCollapsed ? "md:w-16" : "md:w-64"
+            )}
         >
             {/* Logo */}
-            <div className="p-6 border-b border-white/10 flex items-center justify-between relative">
+            <div className="p-3 sm:p-6 border-b border-white/10 flex items-center justify-between relative">
                 {!isCollapsed && (
-                    <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 flex items-center justify-center">
-                            <img src="/logoadmin.png" alt="Logo RASTREA MÓVIL" className="h-16 w-16" />
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center">
+                            <img src="/logoadmin.png" alt="Logo RASTREA MÓVIL" className="h-12 w-12 sm:h-16 sm:w-16" />
                         </div>
                         <div>
-                            <h1 className="font-bold text-lg">RASTREA MÓVIL</h1>
-                            <p className="text-xs text-red-300">Sistema de Rastreo Vehicular</p>
+                            <h1 className="font-bold text-base sm:text-lg">RASTREA MÓVIL</h1>
+                            <p className="text-[10px] sm:text-xs text-red-300">Sistema de Rastreo Vehicular</p>
                         </div>
                     </div>
                 )}
@@ -227,8 +237,8 @@ export function AdminSidebar({ onLogout, userName, onClose, isCollapsed: control
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 overflow-y-auto py-4 px-3">
-                <ul className="space-y-1">
+            <nav className="flex-1 overflow-y-auto py-2 sm:py-4 px-2 sm:px-3">
+                <ul className="space-y-0.5 sm:space-y-1">
                     {menuItems.map((item) => (
                         <li key={item.id}>
                             {item.children ? (
@@ -236,13 +246,13 @@ export function AdminSidebar({ onLogout, userName, onClose, isCollapsed: control
                                     <button
                                         onClick={() => toggleExpand(item.id)}
                                         className={cn(
-                                            "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                                            "w-full flex items-center justify-between px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-colors",
                                             isParentActive(item)
                                                 ? "bg-red-700 text-white"
                                                 : "hover:bg-red-800",
                                         )}
                                     >
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-2 sm:gap-3">
                                             {item.icon}
                                             {!isCollapsed && <span>{item.label}</span>}
                                         </div>
@@ -253,7 +263,7 @@ export function AdminSidebar({ onLogout, userName, onClose, isCollapsed: control
                                         )}
                                     </button>
                                     {expandedItems.includes(item.id) && (
-                                        <ul className="mt-1 ml-4 space-y-1">
+                                        <ul className="mt-0.5 sm:mt-1 ml-3 sm:ml-4 space-y-0.5 sm:space-y-1">
                                             {item.children.map((child) => (
                                                 <li key={child.id}>
                                                     <button
@@ -262,7 +272,7 @@ export function AdminSidebar({ onLogout, userName, onClose, isCollapsed: control
                                                             onClose?.();
                                                         }}
                                                         className={cn(
-                                                            "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
+                                                            "w-full flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm transition-colors",
                                                             isActive(child.path)
                                                                 ? "bg-red-700 text-white font-medium"
                                                                 : "hover:bg-red-800",
@@ -284,7 +294,7 @@ export function AdminSidebar({ onLogout, userName, onClose, isCollapsed: control
                                         onClose?.();
                                     }}
                                     className={cn(
-                                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                                        "w-full flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-colors",
                                         isActive(item.path)
                                             ? "bg-red-700 text-white"
                                             : "hover:bg-red-800",

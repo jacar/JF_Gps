@@ -167,7 +167,7 @@ export function DriversPanel({ onDriverSelect, selectedTripId, onClose }: Driver
                   <p className="text-sm text-muted-foreground">No hay conductores activos</p>
                 </div>
               ) : (
-                <div className="p-4 space-y-2">
+                <div className="p-2 sm:p-4 space-y-2">
                   {activeDrivers.map((trip) => {
                     const latestLocation = latestLocations[trip.id]
                     const isSelected = selectedTripId === trip.id
@@ -176,44 +176,44 @@ export function DriversPanel({ onDriverSelect, selectedTripId, onClose }: Driver
                       <Button
                         key={trip.id}
                         variant={isSelected ? "secondary" : "outline"}
-                        className="w-full h-auto p-3 justify-start hover:bg-red-100"
+                        className="w-full h-auto p-2 sm:p-3 justify-start hover:bg-red-100"
                         onClick={() => onDriverSelect(isSelected ? null : trip)}
                       >
-                        <div className="flex-1 text-left space-y-2">
+                        <div className="flex-1 text-left space-y-1.5 sm:space-y-2">
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <div className="p-1.5 bg-green-500/10 rounded">
-                                <Car className="h-4 w-4 text-green-500" />
+                            <div className="flex items-center gap-1.5 sm:gap-2">
+                              <div className="p-1 sm:p-1.5 bg-green-500/10 rounded">
+                                <Car className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-500" />
                               </div>
                               <div>
-                                <p className="font-medium text-sm leading-none text-red-700">{trip.driver.full_name}</p>
-                                <p className="text-xs text-muted-foreground mt-1">{trip.vehicle_number}</p>
+                                <p className="font-medium text-xs sm:text-sm leading-none text-red-700">{trip.driver.full_name}</p>
+                                <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">{trip.vehicle_number}</p>
                                 {trip.driver.imei && (
                                   <div className="flex items-center gap-1 mt-0.5">
-                                    <Smartphone className="h-3 w-3 text-muted-foreground" />
-                                    <p className="text-[10px] text-muted-foreground">{trip.driver.imei}</p>
+                                    <Smartphone className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
+                                    <p className="text-[9px] sm:text-[10px] text-muted-foreground">{trip.driver.imei}</p>
                                   </div>
                                 )}
                               </div>
                             </div>
-                            <Badge variant="default" className="bg-green-500 text-xs">
+                            <Badge variant="default" className="bg-green-500 text-[10px] sm:text-xs px-1.5 sm:px-2">
                               En ruta
                             </Badge>
                           </div>
 
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                            <div className="flex items-center gap-1">
-                              <Timer className="h-3 w-3 text-muted-foreground" />
+                          <div className="flex flex-wrap gap-x-2 sm:gap-x-4 gap-y-1 text-[10px] sm:text-xs">
+                            <div className="flex items-center gap-0.5 sm:gap-1">
+                              <Timer className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
                               <span className="text-muted-foreground">{tripDurations[trip.id] || "00:00:00"}</span>
                             </div>
-                            <div className="flex items-center gap-1">
-                              <Gauge className="h-3 w-3 text-muted-foreground" />
+                            <div className="flex items-center gap-0.5 sm:gap-1">
+                              <Gauge className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
                               <span className="text-muted-foreground">
                                 {latestLocation?.speed_kmh?.toFixed(0) || 0} km/h
                               </span>
                             </div>
-                            <div className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3 text-muted-foreground" />
+                            <div className="flex items-center gap-0.5 sm:gap-1">
+                              <MapPin className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
                               <span className="text-muted-foreground">
                                 {trip.total_distance_km ? trip.total_distance_km.toFixed(1) : "0.0"} km
                               </span>

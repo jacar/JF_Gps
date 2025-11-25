@@ -20,8 +20,6 @@ export default function AdminPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const toggleSidebar = () => setIsSidebarCollapsed(!isSidebarCollapsed);
 
   useEffect(() => {
     const userData = localStorage.getItem("gps_jf_user")
@@ -65,9 +63,7 @@ export default function AdminPage() {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 bg-card border-r transition-transform duration-300 ease-in-out ${showSidebar ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 ${isSidebarCollapsed ? "md:w-16" : "md:w-64"}`}>
-        <AdminSidebar onLogout={handleLogout} userName={user?.full_name} onClose={() => setShowSidebar(false)} isCollapsed={isSidebarCollapsed} onToggleCollapse={toggleSidebar} />
-      </div>
+      <AdminSidebar onLogout={handleLogout} userName={user?.full_name} onClose={() => setShowSidebar(false)} isCollapsed={!showSidebar} />
 
       {/* Overlay for mobile sidebar */}
       {showSidebar && (
@@ -78,27 +74,27 @@ export default function AdminPage() {
       )}
 
       {/* Main Content */}
-      <div className={`flex-1 flex flex-col md:flex-row h-screen overflow-hidden ${isSidebarCollapsed ? "md:ml-16" : "md:ml-64"}`}>
+      <div className="flex-1 flex flex-col md:flex-row h-screen overflow-hidden">
         {/* Toggle Sidebar Button for mobile */}
         <button
           onClick={() => setShowSidebar(true)}
           className="absolute top-4 left-4 z-40 bg-red-700 text-white shadow-lg rounded-lg p-2 md:hidden"
         >
-          <Menu className="h-6 w-6" />
+          <Menu className="h-5 w-5" />
         </button>
         {/* Toggle Camera Viewer Button */}
         <button
           onClick={() => setShowCameraViewer(!showCameraViewer)}
-          className="absolute top-4 left-16 z-40 bg-blue-600 text-white shadow-lg rounded-lg px-3 py-1 md:hidden"
+          className="absolute top-4 left-14 z-40 bg-blue-600 text-white shadow-lg rounded-lg px-2 py-1.5 text-xs md:hidden"
         >
-          {showCameraViewer ? "Ocultar Cámara" : "Ver Cámara"}
+          {showCameraViewer ? "Ocultar" : "Cámara"}
         </button>
 
         {/* Map - Full Screen */}
         <div className="flex-1 relative h-full">
           {/* Drivers Panel - Collapsible */}
           {showDriversPanel && (
-            <div className="absolute top-0 left-0 z-40 h-full w-full md:w-80 bg-white/90 backdrop-blur-sm shadow-xl transition-all duration-300 overflow-y-auto">
+            <div className="absolute top-0 left-0 z-40 h-full w-[85%] max-w-xs md:w-80 bg-white/90 backdrop-blur-sm shadow-xl transition-all duration-300 overflow-y-auto">
               <DriversPanel
                 onDriverSelect={handleDriverSelect}
                 selectedTripId={selectedTrip?.id || null}
