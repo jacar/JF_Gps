@@ -180,99 +180,105 @@ export default function MonitorPage() {
             <AdminSidebar onLogout={handleLogout} userName={user?.full_name} isCollapsed={isSidebarCollapsed} onClose={() => setIsSidebarCollapsed(true)} />
 
             <div className={`w-full flex flex-col overflow-hidden ml-0 ${isSidebarCollapsed ? "md:ml-16" : "md:ml-64"}`}>
-                <div className="bg-white border-b border-gray-200 px-8 py-6 flex items-center">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 mr-2 md:hidden"
-                        onClick={() => setIsSidebarCollapsed(false)}
-                    >
-                        <Menu className="h-4 w-4" />
-                    </Button>
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Monitor del Sistema</h1>
-                        <p className="text-sm text-gray-500 mt-1">Vista en tiempo real del estado del sistema</p>
+                <div className="bg-white border-b border-gray-200 px-8 py-4">
+                    <div className="flex items-center mb-4">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 mr-2 md:hidden"
+                            onClick={() => setIsSidebarCollapsed(false)}
+                        >
+                            <Menu className="h-4 w-4" />
+                        </Button>
+                        <div>
+                            <h1 className="text-2xl font-bold text-gray-900">Monitor del Sistema</h1>
+                            <p className="text-sm text-gray-500 mt-1">Vista en tiempo real del estado del sistema</p>
+                        </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-6">
-                        <div className="bg-blue-50 rounded-lg p-4">
-                            <div className="flex items-center gap-2 mb-2">
-                                <Truck className="h-5 w-5 text-blue-600" />
-                                <p className="text-sm text-blue-600 font-medium">Vehículos Activos</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                        <div className="bg-blue-50 rounded-lg p-3">
+                            <div className="flex items-center gap-2 mb-1">
+                                <Truck className="h-4 w-4 text-blue-600" />
+                                <p className="text-xs text-blue-600 font-medium">Vehículos Activos</p>
                             </div>
-                            <p className="text-2xl font-bold text-blue-900">{metrics.activeVehicles}</p>
+                            <p className="text-xl font-bold text-blue-900">{metrics.activeVehicles}</p>
                         </div>
-                        <div className="bg-green-50 rounded-lg p-4">
-                            <div className="flex items-center gap-2 mb-2">
-                                <Activity className="h-5 w-5 text-green-600" />
-                                <p className="text-sm text-green-600 font-medium">Viajes Hoy</p>
+                        <div className="bg-green-50 rounded-lg p-3">
+                            <div className="flex items-center gap-2 mb-1">
+                                <Activity className="h-4 w-4 text-green-600" />
+                                <p className="text-xs text-green-600 font-medium">Viajes Hoy</p>
                             </div>
-                            <p className="text-2xl font-bold text-green-900">{metrics.totalTrips}</p>
+                            <p className="text-xl font-bold text-green-900">{metrics.totalTrips}</p>
                         </div>
-                        <div className="bg-purple-50 rounded-lg p-4">
-                            <div className="flex items-center gap-2 mb-2">
-                                <Users className="h-5 w-5 text-purple-600" />
-                                <p className="text-sm text-purple-600 font-medium">Conductores</p>
+                        <div className="bg-purple-50 rounded-lg p-3">
+                            <div className="flex items-center gap-2 mb-1">
+                                <Users className="h-4 w-4 text-purple-600" />
+                                <p className="text-xs text-purple-600 font-medium">Conductores</p>
                             </div>
-                            <p className="text-2xl font-bold text-purple-900">{metrics.activeDrivers}</p>
+                            <p className="text-xl font-bold text-purple-900">{metrics.activeDrivers}</p>
                         </div>
-                        <div className="bg-orange-50 rounded-lg p-4">
-                            <div className="flex items-center gap-2 mb-2">
-                                <Zap className="h-5 w-5 text-orange-600" />
-                                <p className="text-sm text-orange-600 font-medium">Vel. Promedio</p>
+                        <div className="bg-orange-50 rounded-lg p-3">
+                            <div className="flex items-center gap-2 mb-1">
+                                <Zap className="h-4 w-4 text-orange-600" />
+                                <p className="text-xs text-orange-600 font-medium">Vel. Promedio</p>
                             </div>
-                            <p className="text-2xl font-bold text-orange-900">{metrics.avgSpeed} km/h</p>
+                            <p className="text-xl font-bold text-orange-900">{metrics.avgSpeed} km/h</p>
                         </div>
-                        <div className="bg-indigo-50 rounded-lg p-4">
-                            <div className="flex items-center gap-2 mb-2">
-                                <MapPin className="h-5 w-5 text-indigo-600" />
-                                <p className="text-sm text-indigo-600 font-medium">Distancia Hoy</p>
+                        <div className="bg-indigo-50 rounded-lg p-3">
+                            <div className="flex items-center gap-2 mb-1">
+                                <MapPin className="h-4 w-4 text-indigo-600" />
+                                <p className="text-xs text-indigo-600 font-medium">Distancia Hoy</p>
                             </div>
-                            <p className="text-2xl font-bold text-indigo-900">{metrics.totalDistance} km</p>
+                            <p className="text-xl font-bold text-indigo-900">{metrics.totalDistance} km</p>
                         </div>
-                        <div className="bg-red-50 rounded-lg p-4">
-                            <div className="flex items-center gap-2 mb-2">
-                                <TrendingUp className="h-5 w-5 text-red-600" />
-                                <p className="text-sm text-red-600 font-medium">Alertas</p>
+                        <div className="bg-red-50 rounded-lg p-3">
+                            <div className="flex items-center gap-2 mb-1">
+                                <TrendingUp className="h-4 w-4 text-red-600" />
+                                <p className="text-xs text-red-600 font-medium">Alertas</p>
                             </div>
-                            <p className="text-2xl font-bold text-red-900">{metrics.alerts}</p>
+                            <p className="text-xl font-bold text-red-900">{metrics.alerts}</p>
                         </div>
                     </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-8 py-6">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                                    <Clock className="h-5 w-5 text-blue-600" />
-                                </div>
-                                <div>
-                                    <h2 className="text-lg font-semibold text-gray-900">Actividad Reciente</h2>
-                                    <p className="text-sm text-gray-500">Últimos eventos del sistema</p>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                {recentActivity.length > 0 ? (
-                                    recentActivity.map((activity, index) => (
-                                        <div key={index} className="flex items-start gap-4 pb-4 border-b border-gray-100 last:border-0">
-                                            <div className={`w-2 h-2 rounded-full mt-2 ${activity.type === "warning" ? "bg-orange-500" :
-                                                    activity.type === "success" ? "bg-green-500" : "bg-blue-500"
-                                                }`}></div>
-                                            <div className="flex-1">
-                                                <p className="text-sm font-medium text-gray-900">{activity.event}</p>
-                                                <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
-                                            </div>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <p className="text-sm text-gray-500 italic">No hay actividad reciente registrada.</p>
-                                )}
-                            </div>
-                        </div>
-
+                    {/* Two Column Layout */}
+                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-6 h-full">
+                        {/* Left Column - System Info */}
                         <div className="space-y-6">
+                            {/* Activity Recent */}
+                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                        <Clock className="h-5 w-5 text-blue-600" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-lg font-semibold text-gray-900">Actividad Reciente</h2>
+                                        <p className="text-sm text-gray-500">Últimos eventos del sistema</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    {recentActivity.length > 0 ? (
+                                        recentActivity.map((activity, index) => (
+                                            <div key={index} className="flex items-start gap-4 pb-4 border-b border-gray-100 last:border-0">
+                                                <div className={`w-2 h-2 rounded-full mt-2 ${activity.type === "warning" ? "bg-orange-500" :
+                                                    activity.type === "success" ? "bg-green-500" : "bg-blue-500"
+                                                    }`}></div>
+                                                <div className="flex-1">
+                                                    <p className="text-sm font-medium text-gray-900">{activity.event}</p>
+                                                    <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-sm text-gray-500 italic">No hay actividad reciente registrada.</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* System State */}
                             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                                 <h3 className="text-sm font-medium text-gray-500 mb-4">Estado del Sistema</h3>
                                 <div className="space-y-3">
@@ -291,6 +297,7 @@ export default function MonitorPage() {
                                 </div>
                             </div>
 
+                            {/* Connections */}
                             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                                 <h3 className="text-sm font-medium text-gray-500 mb-4">Conexiones</h3>
                                 <div className="space-y-3">
@@ -309,13 +316,14 @@ export default function MonitorPage() {
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    {user && (
-                        <div className="mt-6">
-                            <AdminCameraViewer adminUser={user} />
+                        {/* Right Column - Camera Grid */}
+                        <div className="lg:min-h-[calc(100vh-280px)]">
+                            {user && (
+                                <AdminCameraViewer adminUser={user} />
+                            )}
                         </div>
-                    )}
+                    </div>
                 </div>
             </div>
         </div>
