@@ -26,7 +26,7 @@ export default function SettingsPage() {
 
         // Notifications
         email_notifications: true,
-        sms_notifications: false,
+        whatsapp_notifications: false,
         push_notifications: true,
 
         // Tracking
@@ -190,7 +190,7 @@ export default function SettingsPage() {
                                     <Label htmlFor="company_name">Nombre de la Empresa</Label>
                                     <Input
                                         id="company_name"
-                                        value={settings.company_name}
+                                        value={settings.company_name || ""}
                                         onChange={(e) => setSettings({ ...settings, company_name: e.target.value })}
                                     />
                                 </div>
@@ -200,7 +200,7 @@ export default function SettingsPage() {
                                         <Input
                                             id="company_email"
                                             type="email"
-                                            value={settings.company_email}
+                                            value={settings.company_email || ""}
                                             onChange={(e) => setSettings({ ...settings, company_email: e.target.value })}
                                         />
                                     </div>
@@ -208,7 +208,7 @@ export default function SettingsPage() {
                                         <Label htmlFor="company_phone">Teléfono</Label>
                                         <Input
                                             id="company_phone"
-                                            value={settings.company_phone}
+                                            value={settings.company_phone || ""}
                                             onChange={(e) => setSettings({ ...settings, company_phone: e.target.value })}
                                         />
                                     </div>
@@ -236,20 +236,20 @@ export default function SettingsPage() {
                                     </div>
                                     <input
                                         type="checkbox"
-                                        checked={settings.email_notifications}
+                                        checked={settings.email_notifications || false}
                                         onChange={(e) => setSettings({ ...settings, email_notifications: e.target.checked })}
                                         className="w-5 h-5"
                                     />
                                 </div>
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <Label>Notificaciones por SMS</Label>
-                                        <p className="text-sm text-gray-500">Recibir alertas por mensaje de texto</p>
+                                        <Label>Notificaciones por WhatsApp</Label>
+                                        <p className="text-sm text-gray-500">Enviar alertas al WhatsApp +573052891719</p>
                                     </div>
                                     <input
                                         type="checkbox"
-                                        checked={settings.sms_notifications}
-                                        onChange={(e) => setSettings({ ...settings, sms_notifications: e.target.checked })}
+                                        checked={settings.whatsapp_notifications || false}
+                                        onChange={(e) => setSettings({ ...settings, whatsapp_notifications: e.target.checked })}
                                         className="w-5 h-5"
                                     />
                                 </div>
@@ -260,7 +260,7 @@ export default function SettingsPage() {
                                     </div>
                                     <input
                                         type="checkbox"
-                                        checked={settings.push_notifications}
+                                        checked={settings.push_notifications || false}
                                         onChange={(e) => setSettings({ ...settings, push_notifications: e.target.checked })}
                                         className="w-5 h-5"
                                     />
@@ -286,7 +286,7 @@ export default function SettingsPage() {
                                     <Input
                                         id="update_interval"
                                         type="number"
-                                        value={settings.update_interval}
+                                        value={settings.update_interval ?? 30}
                                         onChange={(e) => setSettings({ ...settings, update_interval: parseInt(e.target.value) })}
                                         min="10"
                                         max="300"
@@ -298,7 +298,7 @@ export default function SettingsPage() {
                                     <Input
                                         id="speed_limit"
                                         type="number"
-                                        value={settings.speed_limit}
+                                        value={settings.speed_limit ?? 100}
                                         onChange={(e) => setSettings({ ...settings, speed_limit: parseInt(e.target.value) })}
                                         min="0"
                                         max="200"
@@ -312,7 +312,7 @@ export default function SettingsPage() {
                                     </div>
                                     <input
                                         type="checkbox"
-                                        checked={settings.geofence_alerts}
+                                        checked={settings.geofence_alerts || false}
                                         onChange={(e) => setSettings({ ...settings, geofence_alerts: e.target.checked })}
                                         className="w-5 h-5"
                                     />
@@ -338,7 +338,7 @@ export default function SettingsPage() {
                                     <Input
                                         id="default_zoom"
                                         type="number"
-                                        value={settings.default_zoom}
+                                        value={settings.default_zoom ?? 13}
                                         onChange={(e) => setSettings({ ...settings, default_zoom: parseInt(e.target.value) })}
                                         min="1"
                                         max="20"
@@ -348,7 +348,7 @@ export default function SettingsPage() {
                                     <Label htmlFor="map_style">Estilo del Mapa</Label>
                                     <select
                                         id="map_style"
-                                        value={settings.map_style}
+                                        value={settings.map_style || "streets"}
                                         onChange={(e) => setSettings({ ...settings, map_style: e.target.value })}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]"
                                     >
@@ -377,7 +377,7 @@ export default function SettingsPage() {
                                     <Label htmlFor="backup_frequency">Frecuencia de Respaldo</Label>
                                     <select
                                         id="backup_frequency"
-                                        value={settings.backup_frequency}
+                                        value={settings.backup_frequency || "daily"}
                                         onChange={(e) => setSettings({ ...settings, backup_frequency: e.target.value })}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]"
                                     >
@@ -392,7 +392,7 @@ export default function SettingsPage() {
                                     <Input
                                         id="retention_days"
                                         type="number"
-                                        value={settings.retention_days}
+                                        value={settings.retention_days ?? 90}
                                         onChange={(e) => setSettings({ ...settings, retention_days: parseInt(e.target.value) })}
                                         min="30"
                                         max="365"
@@ -430,7 +430,7 @@ export default function SettingsPage() {
                                         <Input
                                             id="smtp_port"
                                             type="number"
-                                            value={settings.smtp_port || 587}
+                                            value={settings.smtp_port ?? 587}
                                             onChange={(e) => setSettings({ ...settings, smtp_port: parseInt(e.target.value) })}
                                         />
                                     </div>
@@ -474,9 +474,7 @@ export default function SettingsPage() {
                                         onClick={async () => {
                                             setSendingTest(true)
                                             try {
-                                                // Save settings first to ensure backend has latest
                                                 await handleSave()
-
                                                 const result = await sendTestAlarmEmail(settings.company_email)
                                                 if (result.success) {
                                                     toast.success("Correo de prueba enviado")
